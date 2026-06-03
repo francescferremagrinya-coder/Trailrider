@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Trailrider.cat</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;background:#0a0500;overflow:hidden;touch-action:none;}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+#ui{position:fixed;bottom:0;left:0;right:0;pointer-events:none;z-index:10;}
+#lc{position:absolute;bottom:22px;left:14px;display:flex;gap:10px;pointer-events:all;}
+#rc{position:absolute;bottom:22px;right:14px;display:flex;flex-direction:column;gap:10px;pointer-events:all;}
+.b{width:70px;height:70px;border-radius:14px;background:rgba(20,20,20,0.88);border:2px solid rgba(255,255,255,0.16);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;color:rgba(255,255,255,0.72);font-size:24px;-webkit-user-select:none;user-select:none;cursor:pointer;}
+.b span{font-size:10px;font-weight:700;letter-spacing:1px;font-family:monospace;color:rgba(255,255,255,0.55);}
+.b.on{background:rgba(70,70,70,0.95);}
+.bg{border-color:rgba(255,165,30,0.50);}
+.bg span{color:#ffaa22;}
+.bg.on{background:rgba(90,50,0,0.95);}
+.bf{border-color:rgba(220,55,20,0.45);}
+.bf span{color:#ff5020;}
+.bf.on{background:rgba(70,15,0,0.95);}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="lc">
+    <div class="b" id="bl">◀</div>
+    <div class="b" id="br">▶</div>
+  </div>
+  <div id="rc">
+    <div class="b bg" id="bg">▲<span>GAS</span></div>
+    <div class="b bf" id="bb">▼<span>FRE</span></div>
+  </div>
+</div>
+<script>
+// ── Canvas 240×320 lògic ────────────────────────
+const LW=360,LH=480;
+const CV=document.getElementById('c');
+const ctx=CV.getContext('2d');
+CV.width=LW; CV.height=LH;
+function resize(){
+  const s=Math.min(Math.floor(window.innerWidth/LW),Math.floor(window.innerHeight/LH))||1;
+  CV.style.width=LW*s+'px'; CV.style.height=LH*s+'px';
+}
+resize(); window.addEventListener('resize',resize);
+const px=(x,y,w,h,c)=>{ctx.fillStyle=c;ctx.fillRect(x|0,y|0,w|0,h|0);};
+
+// ── Input ───────────────────────────────────────
+const K={};
+document.addEventListener('keydown',e=>{K[e.key]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();});
+document.addEventListener('keyup',e=>{K[e.key]=false;});
+function mkB(id,key){
+  const el=document.getElementById(id);
+  const on=e=>{e.preventDefault();K[key]=true;el.classList.add('on');};
+  const off=e=>{e.preventDefault();K[key]=false;el.classList.remove('on');};
+  el.addEventListener('touchstart',on,{passive:false});
+  el.addEventListener('touchend',off,{passive:false});
+  el.addEventListener('touchcancel',off,{passive:false});
+  el.addEventListener('mousedown',on);
+  el.addEventListener('mouseup',off);
+  el.addEventListener('mouseleave',off);
+}
+mkB('bl','ArrowLeft'); mkB('br','ArrowRight');
+mkB('bg','ArrowUp');   mkB('bb','ArrowDown');
+document.addEventListener('touchstart',()=>{if(!G.on)G.on=true;},{passive:true});
+document.addEventListener('keydown',e=>{if(!G.on&&(e.key==='ArrowUp'||e.key===' '))G.on=true;});
+
+// ═══════════════════════════════════════════════
+//  SPRITE — extret directament de la imatge
+// ═══════════════════════════════════════════════
+const SPR_COLS=20, SPR_ROWS=54;
+const SPR=[
+[0,0,0,0,0,0,0,0,"#7b1f05","#b12b06","#43110a","#71421e",0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,"#b7b1ae","#e9e7e9",0,"#f2d0b7","#c72b00","#535253",0,0,0,0,0,0,0,0],
+[0,0,0,0,0,"#993211","#0e0a0a","#f9fafc","#d8b7a9","#f6842c",0,"#f9e2d2","#10110d",0,0,0,0,0,0,0],
+[0,0,0,0,0,"#551108","#f6f5f6","#faf9fa","#482012","#41160c","#000000","#fbfcfc","#f0eff2","#7f1508",0,0,0,0,0,0],
+[0,0,0,0,0,"#b9b9b9","#f3f4f4","#1f1f1f","#373635","#3c3d3c","#414243","#777677","#e4e5e7","#b48683","#6d4321",0,0,0,0,0],
+[0,0,0,0,0,"#a09f9e","#131314","#303030","#2c2c2c","#2e2e2e","#2e2e2e","#181818","#a4a5a6","#b3b2b2","#59361a",0,0,0,0,0],
+[0,0,0,0,0,"#414341","#181817","#131312","#080707","#060606","#060506","#121212","#0e0f0e","#98989a","#472a15",0,0,0,0,0],
+[0,0,0,0,0,"#090809","#060506","#0a090a","#413e3d","#423e3f","#3d3839","#211f20","#050506","#040405",0,0,0,0,0,0],
+[0,0,0,0,"#0a0a09","#271d2a","#5e3d5c","#48284a","#17111b","#2b182f","#241427","#2e1932","#423840","#251229","#0b0e0f",0,0,0,0,0],
+[0,0,0,"#36150e","#85272c","#2b1817","#351e37","#050605","#363637","#3c3b3c","#3b393a","#333233","#050606","#563259","#422227","#29130f",0,0,0,0],
+[0,0,"#16100b","#b21e17","#ae3433","#d82e22","#090808","#1d1d1d","#272727","#212021","#141515","#2e2e2e","#161616","#130a14",0,"#b7211d","#1a100d",0,0,0],
+[0,0,"#510c09","#f23c22",0,0,"#080809","#0b0b0b","#20201f","#333332","#383838","#0a0909","#242525","#09080b","#9f1915",0,"#6d0a0d",0,0,0],
+[0,"#39120d","#bd211a","#f9442b","#bd1d1b",0,"#040404","#1f201f","#3b3b3b","#3b3b3a","#3a3a3a","#3c3c3c","#3c3b3b","#040304","#780f0e",0,0,"#53140d",0,0],
+[0,"#480f0a","#f8442a","#780e0c","#b91d1a","#bc2620","#0a080a","#1f1f1f","#3b3a3b","#3b3b3b","#3c3b3b","#3c3b3b","#3b3b3a","#0c070b","#490c0a","#a31312",0,"#5c0c0a",0,0],
+["#2d1810","#c63120","#be1b18","#961313","#af1315","#431a2f","#070608","#141515","#373737","#373736","#383837","#393937","#1b1a1b","#060607","#440908","#7f0a0d","#c9291e",0,"#23110b",0],
+["#520c0a",0,"#c21917","#830f0e","#730a11","#1e1823","#060606","#161615","#151515","#161616","#171717","#161716","#101010","#140910","#0e0909","#59070a","#ab1312",0,"#6c0f0e",0],
+["#aa1c16","#d62d21","#9a0f11","#460a07","#100708","#08090a","#231126","#070706","#070706","#070707","#070707","#070706","#070706","#2b142c","#090907","#320a07","#7a080b","#b11c17","#da2d1d","#160f0d"],
+["#dd291c","#8d0a0c","#790b0f","#0d0601","#070402","#321731","#3b1e3d","#2d182f","#29182b","#291729","#271628","#261728","#341936","#0e0c0e",0,"#110c0b","#710a0e","#68090c","#d62a1d","#8d0f11"],
+["#560809","#7e0a0d","#230d0c",0,"#2b0706","#a21a19","#341b3a","#412a42","#503051","#4d2f50","#4d2e4e","#4b2d4c","#533356","#28132c","#280e0b",0,"#120b0a","#8f0b0f","#470d0c","#d93224"],
+["#880a0d","#330808","#891310","#0e0c0d","#250709","#3c1638","#592440","#241025","#0c090d","#1f0e20","#150d17","#1b111c","#36183a","#461637","#270b07","#0a0b0d","#770c0e","#400b0b","#830b0e","#990d0e"],
+["#8b0c0e","#8a0c0e","#070706","#0a0d09","#0b0505","#0d050f","#050707","#0a0a09","#0c090b","#060506","#0b080a","#0b080a","#030303","#030303","#6e120b","#0d1010","#0e0807","#7c0a0c","#85080d","#4c0b0b"],
+[0,0,0,"#2a1c10","#141615","#2f2c30","#251f25","#322c33","#373333","#373036","#3b373a","#3b3338","#363435","#312c32","#0e090a","#0b0908",0,0,0,0],
+[0,0,0,"#110e0c","#10100f","#303030","#474444","#403d3d","#2f2f2e","#252524","#222120","#383837","#3a3939","#232322","#121212","#0e0c0c",0,0,0,0],
+[0,0,"#030200","#282727","#111111","#1b1c1b","#252525","#272727","#161514","#0d0d0c","#171616","#1d1d1c","#1d1d1d","#1d1d1c","#111111","#262626","#090604",0,0,0],
+[0,"#040302","#232322","#3e3e3e","#101010","#0f0f0e","#111111","#111110","#070606","#070707","#080908","#131212","#141413","#121211","#111010","#323231","#212222","#090b0b",0,0],
+[0,"#151616","#313130","#1d1d1d","#0f0f0f","#080808","#070707","#060606","#060706","#060606","#080807","#060606","#060606","#0b0b0a","#181817","#1e1d1e","#303131","#0c0d0c",0,0],
+["#080808","#313131","#1a1b1a","#111111","#070707","#090908","#150d15","#3f2a40","#4d3a4d","#503e51","#4f3c4f","#2c1c2c","#070707","#080707","#101010","#101110","#202020","#333333","#0a0a0a",0],
+["#09090a","#191819","#101010","#101010","#070807","#321c31","#130e13","#080808","#221113","#1e0e11","#150c0e","#0b0a0b","#30182f","#020102","#080708","#111010","#151615","#262627","#0a0a08",0],
+["#090909","#212122","#070607","#080707","#341b30","#090709",0,"#f3eeea","#faf9f8","#fbfafa","#feffff",0,"#0a090b","#392134","#070708","#070707","#070707","#1b1b1c","#090908",0],
+["#070707","#353535","#242423","#131313","#090707",0,0,"#280c09","#3f0906","#380705","#2a0907","#722e09","#f67917","#090c0d","#060606","#111010","#232323","#373736","#070707",0],
+["#090909","#323232","#252526","#0c0c0c","#43210d",0,"#090909","#929394","#323036",0,"#2a2628","#404141",0,"#6b2909","#090a0a","#101010","#111111","#373736","#0a0a0a",0],
+[0,"#161717","#131313","#181819","#8d320f","#090909","#312a2d","#bdbbbb","#040406","#621a13","#000000","#626363","#0b0c0d",0,"#080808","#1a1918","#2d2d2c","#1c1c1b","#4a1607",0],
+[0,"#080909","#323231","#1a1a1a","#525453","#434242","#090809","#323030","#090607","#511718","#250f17","#1b191a","#4c4c4b","#4c4b4b","#080808","#212121","#393938","#592709","#441d0b",0],
+[0,"#511f0c","#151515","#040404","#030202",0,"#dbd9d9","#060708","#772032","#f8702c","#ce2827","#7b7a7b","#801a0c","#2b0c0b","#d4d3d3","#090808","#1b1b1b",0,0,0],
+[0,"#060506","#191818","#0a0a0a","#a32e0e","#1f0c07","#a4a3a3","#020202","#ac1c16","#330c0a","#921115","#575756","#8f240c",0,"#90908e","#111110","#272726","#0b0c0e",0,0],
+[0,"#040505","#30302f","#151515","#bdbbba","#aeadab","#050404","#1c1a1b","#0c080a","#a92215","#1d131a","#161416","#a09c98","#9c9a9a","#040404","#161616","#353534","#060607",0,0],
+[0,"#0a0a0a","#070707","#3a3a3b","#070708","#080808","#060606","#272124","#2a1117","#321014","#2e1014","#080608","#09090a","#070607","#090809","#323230","#0b0b0b",0,0,0],
+[0,"#2a180f","#0d0d0c","#2f2f2f",0,"#040507","#9c9c9b","#aca7a6","#aea7a1","#b2a290","#a19585","#a9a8a6","#060606","#863009","#060606","#302f2e","#11100f","#0a0a09",0,0],
+[0,"#f2f2f1","#969797","#131314","#3c2c1e","#0f0c0d","#e7e6e5","#474547","#d6d5d4","#a29b97","#ffffff","#bbbbbb","#111211","#241e1b","#070507","#0c0c0c","#fbfbfb","#222021",0,0],
+["#0e0d0c","#a4a3a2","#454442","#2b1b1a","#090a0c","#130908","#e0e0df","#bdbcbb","#424241","#7b7a79","#b3b1af","#bab9ba","#080707","#6c3014","#121212","#302e2e","#908f8f","#3c393a","#0d0d0c",0],
+[0,"#090809","#727170","#100e0e","#24272a","#0b0504","#9e9d9d","#a8a7a5","#d7d6d6","#d4d3d3","#d8d8d6","#989796","#0c0e0f","#222021","#352a2c","#0e0d0d","#444344","#0e0d0e","#6a4022",0],
+[0,"#20130e","#030304","#6e5043",0,"#190805","#080809","#080809","#060606","#070707","#070707","#060607","#0c0607",0,"#050505","#827f7d","#0e0f10",0,0,0],
+[0,0,0,"#3c2213","#babcbf","#1d0b07","#080708","#1b1a1a","#101010","#202020","#202020","#100f0f","#2b0d07","#a3a3a5","#090909","#371f12",0,0,0,0],
+[0,0,"#693d22","#000000","#d7d8d8","#2c0b04","#141314","#2c2c2b","#3d3d3e","#534b49","#303030","#222121","#350d06","#c3c2c2","#838383","#0a0807",0,0,0,0],
+[0,0,"#673c21","#6d4125","#8a8984","#250d07","#131212","#4b4b4b","#131313","#3c3c3c","#090808","#262828","#270e07",0,"#121110","#6f4123","#6e4123",0,0,0],
+[0,"#673d23","#693f23","#683d21","#060508","#2f0e04","#080808","#484747","#3e3e3e","#544b4a","#3d3d3d","#1f1c1d","#220c05","#0b0d0e","#6f4123","#704324","#6c3f24","#683f23",0,0],
+[0,0,"#6d4022","#6b3e21","#673d22","#110d08","#090909","#393939","#161615","#393839","#1f1e1d","#0f0f0f","#0e0c08","#5f371f","#704123","#6e4123","#724223",0,0,0],
+[0,0,0,"#663d23","#663d22","#53351d","#030303","#403e3f","#302b2b","#363637","#0f110f","#1b1c1c","#55321b","#5a361f","#724325",0,0,0,0,0],
+[0,0,0,0,"#643c20","#603a20","#070707","#313131","#212020","#333232","#3d3b3a","#171817","#512f19","#59361e","#6e4123",0,0,0,0,0],
+[0,0,"#734525","#714425","#5f3920","#4a311d","#070606","#1e1f1f","#0f0e0f","#2c2b2b","#0d0d0c","#1b1818","#53321c",0,"#704324",0,0,0,0,0],
+[0,0,0,0,"#5f3a21","#5c3820","#0a090a","#161616","#161614","#252524","#171616","#0e0d0d","#59341c","#724224",0,0,0,0,0,0],
+[0,0,0,0,"#633c23","#663e23","#5d381f","#080708","#1b1b1b","#191818","#171616","#352212","#724425","#6d4124",0,0,0,0,0,0],
+[0,0,0,0,0,"#6a3f23","#5b3821","#442a18","#060606","#080707","#060605","#5b371d",0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,"#6a4024","#6b3f22","#643c20","#663e22",0,0,0,0,0,0,0,0,0],
+];
+
+const PX=3; // escala sprite: cada píxel del sprite = 4px lògics
+const SDW=SPR_COLS*PX, SDH=SPR_ROWS*PX;
+
+// Pre-render sprite en offscreen canvas (compatible Safari)
+function buildSprCanvas(){
+  const oc=document.createElement('canvas');
+  oc.width=SDW; oc.height=SDH;
+  const c2=oc.getContext('2d');
+  SPR.forEach((row,sy)=>{
+    row.forEach((col,sx)=>{
+      if(!col||col===0)return;
+      c2.fillStyle=col;
+      c2.fillRect(sx*PX,sy*PX,PX,PX);
+    });
+  });
+  return oc;
+}
+const sprOC=buildSprCanvas();
+
+// Detecta files de roda (files amb píxels de pneumàtic negre/gris)
+// Roda davantera: primeres files, roda darrere: últimes files
+const WHEEL_ROWS_TOP=[0,1,2,3,4,5,6,7]; // roda davantera
+const WHEEL_ROWS_BOT=[46,47,48,49,50,51,52,53]; // roda darrere
+
+function drawMoto(dx,dy,lean,wf){
+  ctx.save();
+  ctx.translate((dx+SDW/2)|0,(dy+SDH)|0);
+  if(lean!==0) ctx.transform(1,0,lean*0.055,1,0,0);
+  ctx.translate((-SDW/2)|0,-SDH|0);
+
+  // Ombra
+  ctx.fillStyle='rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(SDW/2,SDH+3,SDW*0.42,5,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Sprite base
+  ctx.drawImage(sprOC,0,0);
+
+  // Animació rodes: redibux files de roda amb offset
+  const off=(wf%PX+PX)%PX;
+  if(off>0){
+    [...WHEEL_ROWS_TOP,...WHEEL_ROWS_BOT].forEach(sy=>{
+      const row=SPR[sy];
+      if(!row)return;
+      row.forEach((col,sx)=>{
+        if(!col||col===0)return;
+        const nx=((sx*PX+off)%(SPR_COLS*PX));
+        ctx.fillStyle=col;
+        ctx.fillRect(nx,sy*PX,PX,PX);
+      });
+    });
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+//  CEL + MUNTANYES pixel art
+// ═══════════════════════════════════════════════
+const HOR=130;
+const SKY_ROWS=['#10203a','#152840','#1a3048','#1f3852','#24405c','#294866','#2e5070','#33587a','#386084','#3d688e','#427098','#477aa2','#4c82aa','#518ab2','#568eba','#5b96c2','#6098c8','#659ecc','#6aa4d2','#6faad8'];
+const MTNS=[
+  // Capa 1: pics llunyans nevats (fons)
+  {pts:[
+    [0,52],[12,32],[24,48],[38,20],[52,38],[66,16],[80,30],[94,12],[110,28],[126,18],[142,34],
+    [158,14],[174,30],[190,20],[206,36],[220,16],[236,28],[248,10],[264,24],[280,18],[296,32],
+    [310,12],[326,26],[340,16],[360,52]
+  ],c:'#5a7870',s:'#3a5058',snow:true},
+  // Capa 2: serralada mitja (pinar fosc)
+  {pts:[
+    [0,64],[10,42],[22,60],[36,30],[50,52],[64,22],[80,44],[96,28],[112,48],[128,30],[144,52],
+    [160,24],[176,42],[192,28],[210,50],[226,30],[242,46],[258,22],[274,40],[290,26],[308,46],
+    [324,28],[340,44],[360,64]
+  ],c:'#2e5030',s:'#1c3420',snow:false},
+  // Capa 3: relleu proper (vegetació densa)
+  {pts:[
+    [0,78],[8,54],[18,72],[30,44],[44,66],[58,32],[74,58],[90,38],[108,62],[124,40],[140,64],
+    [156,34],[172,56],[188,40],[206,66],[222,42],[238,62],[254,32],[272,56],[288,38],[306,62],
+    [322,40],[338,58],[360,78]
+  ],c:'#1e3e1e',s:'#122812',snow:false},
+];
+const CLOUDS=[
+  {x:14, y:10,s:[[2,0],[3,0],[4,0],[5,0],[6,0],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[2,2],[3,2],[4,2],[5,2],[6,2]]},
+  {x:90, y:5, s:[[1,0],[2,0],[3,0],[4,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[1,2],[2,2],[3,2],[4,2]]},
+  {x:175,y:14,s:[[2,0],[3,0],[4,0],[5,0],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[2,2],[3,2],[4,2],[5,2]]},
+  {x:270,y:7, s:[[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2]]},
+  {x:320,y:18,s:[[1,0],[2,0],[3,0],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2]]},
+];
+function drawSky(){
+  const rh=HOR/SKY_ROWS.length;
+  SKY_ROWS.forEach((c,i)=>px(0,i*rh|0,LW,rh+1|0,c));
+  MTNS.forEach((m)=>{ const {pts,c,s,snow}=m;
+    ctx.fillStyle=s; ctx.beginPath(); ctx.moveTo(0,HOR);
+    pts.forEach(([x,y])=>ctx.lineTo(x,HOR-y));
+    ctx.lineTo(LW,HOR); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(0,HOR-2);
+    pts.forEach(([x,y])=>ctx.lineTo(x,HOR-y+2));
+    ctx.lineTo(LW,HOR-2); ctx.closePath(); ctx.fill();
+    if(m.snow){
+      // Neu als cims: degradat de blanc
+      ctx.fillStyle='rgba(255,255,255,0.88)';
+      pts.filter(([,y])=>y>28).forEach(([x,y])=>{
+        // Neu principal
+        ctx.beginPath();ctx.moveTo(x,HOR-y+2);ctx.lineTo(x-7,HOR-y+14);ctx.lineTo(x+7,HOR-y+14);ctx.closePath();ctx.fill();
+        // Capa neu interior (brillant)
+        ctx.fillStyle='rgba(255,255,255,0.55)';
+        ctx.beginPath();ctx.moveTo(x,HOR-y+2);ctx.lineTo(x-4,HOR-y+10);ctx.lineTo(x+4,HOR-y+10);ctx.closePath();ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.88)';
+      });
+      // Línies de cresta (pixel art)
+      ctx.strokeStyle='rgba(255,255,255,0.30)';
+      ctx.lineWidth=1;
+      for(let i=1;i<pts.length-1;i++){
+        const [x,y]=pts[i];
+        if(y>18){
+          ctx.beginPath();
+          ctx.moveTo(x-8,HOR-y+16);ctx.lineTo(x,HOR-y+4);ctx.lineTo(x+8,HOR-y+16);
+          ctx.stroke();
+        }
+      }
+    }
+  });
+  px(0,HOR-3,LW,3,'rgba(200,220,180,0.28)');
+  CLOUDS.forEach(cl=>{
+    cl.x=(cl.x+0.06)%(LW+20);
+    cl.s.forEach(([dx,dy])=>px(cl.x+dx*2,cl.y+dy*2,2,2,'rgba(255,255,255,0.78)'));
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  TERRA  camí de terra pixel art (scanline)
+// ═══════════════════════════════════════════════
+const DIRT=['#b86830','#c07038','#b06028','#c87840','#aa5e28','#be6a32'];
+const TRACK=['#7a4010','#6a3808','#824818','#704010'];
+const PEBBLE=['#c8a878','#b89868','#d4b888','#e0c898','#9a7848'];
+
+// Pedres pre-calculades (posicions relatives al camí)
+const PEBBLES=Array.from({length:80},(_,i)=>({
+  rpos:(i*79+i*i*13)%180,
+  ryoff:(i*41+23)%90,
+  sz:1+(i%4===0?1:0),
+  ci:i%5,
+}));
+
+let scrollY=0;
+function roadHW(z){return 18+z*155;}
+
+function drawTerrain(){
+  const cx=LW/2;
+  for(let y=HOR;y<LH;y++){
+    const z=(y-HOR)/(LH-HOR);
+    const hw=roadHW(z);
+    const x0=(cx-hw)|0, x1=(cx+hw)|0;
+    const sy=(scrollY+y)|0;
+
+    // Terra lateral (variació de color per fila)
+    const di=((sy)%6+6)%6;
+    const dc=DIRT[di];
+    if(x0>0)  px(0,y,x0,1,dc);
+    if(x1<LW) px(x1,y,LW-x1,1,dc);
+
+    // Vorera
+    const ew=Math.max(1,(z*2.5)|0);
+    px(x0-ew,y,ew,1,'#7a3e0e');
+    px(x1,y,ew,1,'#7a3e0e');
+
+    // Camí de terra
+    const ti=((sy)%4+4)%4;
+    px(x0,y,x1-x0,1,TRACK[ti]);
+
+    // Roderes fosques
+    const t1=(cx-hw*0.30)|0, t2=(cx+hw*0.30)|0;
+    const tw=Math.max(1,(z*2.2)|0);
+    px(t1,y,tw,1,'#5a2c08');
+    px(t2,y,tw,1,'#5a2c08');
+
+    // Pedres
+    if(z>0.10){
+      PEBBLES.forEach(pb=>{
+        const pvy=((pb.ryoff+(scrollY|0)*1.1)%(LH-HOR))|0;
+        if(pvy!==(y-HOR))return;
+        const rw=x1-x0;
+        if(rw<2)return;
+        const ppx=x0+(pb.rpos%rw)|0;
+        px(ppx,y,pb.sz,pb.sz,PEBBLE[pb.ci]);
+      });
+    }
+  }
+  scrollY+=G.spd*1.4;
+}
+
+// ═══════════════════════════════════════════════
+//  VEGETACIÓ lateral
+// ═══════════════════════════════════════════════
+function mkPine(h){
+  const w=(h*0.68)|0, oc=document.createElement('canvas');
+  oc.width=w; oc.height=h+4;
+  const c=oc.getContext('2d');
+  const cols=[['#1e3a10','#2e5218','#3a6028'],['#243e14','#345820','#406630'],['#182e0e','#283e16','#303e20']];
+  [[0.92,0.34,0],[0.74,0.30,0.22],[0.56,0.28,0.42]].forEach(([wf,hf,yf],i)=>{
+    const lw=(w*wf)|0,lh=(h*hf)|0,ly=(h*0.76-h*yf)|0;
+    c.fillStyle=cols[i][0];
+    c.beginPath();c.moveTo(w/2,ly-lh);c.lineTo(w/2-lw/2,ly);c.lineTo(w/2+lw/2,ly);c.closePath();c.fill();
+    c.fillStyle=cols[i][1];
+    c.beginPath();c.moveTo(w/2,ly-lh+1);c.lineTo(w/2-lw/2+2,ly-1);c.lineTo(w/2+lw/2-2,ly-1);c.closePath();c.fill();
+    c.fillStyle=cols[i][2];
+    c.beginPath();c.moveTo(w/2-lw*0.1,ly-lh+1);c.lineTo(w/2-lw*0.4,ly-lh*0.3);c.lineTo(w/2+lw*0.05,ly-lh*0.35);c.closePath();c.fill();
+  });
+  c.fillStyle='#5a3010';c.fillRect(w/2-2|0,h*0.76|0,4,h*0.24+4|0);
+  return oc;
+}
+function mkBush(s){
+  const oc=document.createElement('canvas');
+  oc.width=s;oc.height=s;
+  const c=oc.getContext('2d');
+  const cols=['#2a4818','#3a5820','#4a6828','#2e4e18','#1e3a10','#506030'];
+  for(let y=0;y<s;y++)for(let x=0;x<s;x++){
+    const dx=x-s/2,dy=y-s/2;
+    if(Math.sqrt(dx*dx+dy*dy)<s*0.45+(Math.sin(x*0.8+y*1.2)*s*0.06)){
+      c.fillStyle=cols[(x*3+y*7)%cols.length];c.fillRect(x,y,1,1);
+    }
+  }
+  return oc;
+}
+const PINE_A=mkPine(44),PINE_B=mkPine(28);
+const BUSH_A=mkBush(22),BUSH_B=mkBush(14);
+
+const SIDES=Array.from({length:64},(_,i)=>({
+  z:Math.random(),side:i%2?1:-1,
+  type:Math.random()<0.52?'pine':'bush',
+  off:6+Math.random()*20,big:Math.random()<0.5,
+}));
+function drawVeg(){
+  const cx=LW/2;
+  [...SIDES].sort((a,b)=>a.z-b.z).forEach(s=>{
+    const sy=HOR+s.z*(LH-HOR);
+    const hw=roadHW(s.z);
+    const bx=cx+s.side*(hw+s.off*(s.z*0.85+0.2)*2+3);
+    const sc=s.z;
+    if(sc<0.07)return;
+    if(s.type==='pine'){
+      const spr=s.big?PINE_A:PINE_B;
+      const sw=(spr.width*sc*2.5)|0,sh=(spr.height*sc*2.5)|0;
+      if(sw<3)return;
+      ctx.drawImage(spr,(bx-sw/2)|0,(sy-sh)|0,sw,sh);
+    }else{
+      const spr=s.big?BUSH_A:BUSH_B;
+      const sw=(spr.width*sc*2.5)|0,sh=(spr.height*sc*2.5)|0;
+      if(sw<3)return;
+      ctx.drawImage(spr,(bx-sw/2)|0,(sy-sh*0.55)|0,sw,sh);
+    }
+    s.z+=G.spd*0.0028;
+    if(s.z>1.04){s.z=0.01+Math.random()*0.05;s.off=6+Math.random()*20;s.type=Math.random()<0.52?'pine':'bush';s.big=Math.random()<0.5;}
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  HUD pixel art
+// ═══════════════════════════════════════════════
+function drawHUD(){
+  px(0,0,LW,13,'rgba(0,0,0,0.60)');
+  for(let i=0;i<3;i++){
+    const hc=i<G.hp?'#ff2020':'#300808';
+    const hx=4+i*13;
+    [[1,0],[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[1,3],[2,3]].forEach(([dx,dy])=>px(hx+dx,2+dy,1,1,hc));
+  }
+  ctx.fillStyle='#ffdd44';ctx.font='bold 6px monospace';ctx.textAlign='left';
+  ctx.fillText('KM '+(G.dist/80).toFixed(1),46,10);
+  ctx.fillStyle='#fff';
+  ctx.fillText(Math.round(G.spd*14)+'km/h',130,10);
+  ctx.textAlign='right';ctx.fillStyle='#88ddff';
+  ctx.fillText(G.score+'pts',LW-3,10);
+  // Barra velocitat
+  const bx=LW-8,by=17,bh=52;
+  px(bx,by,6,bh,'#181818');
+  const r=Math.min(1,G.spd/G.maxSpd);
+  px(bx,(by+bh*(1-r))|0,6,(bh*r)|0,r>0.82?'#ff4400':r>0.55?'#ffaa00':'#44dd44');
+}
+
+// ═══════════════════════════════════════════════
+//  PANTALLES
+// ═══════════════════════════════════════════════
+function drawStart(){
+  px(0,0,LW,LH,'rgba(0,0,0,0.75)');
+  ctx.textAlign='center';
+  ctx.fillStyle='#ff8800';ctx.font='bold 14px monospace';
+  ctx.fillText('TRAILRIDER',LW/2,LH*0.35);
+  ctx.fillStyle='#ffaa22';ctx.font='bold 10px monospace';
+  ctx.fillText('.cat',LW/2,LH*0.35+16);
+  ctx.fillStyle='#e8e8e8';ctx.font='7px monospace';
+  ctx.fillText('TÉNÈRE XT660Z',LW/2,LH*0.52);
+  ctx.fillStyle='rgba(255,255,255,0.48)';ctx.font='6px monospace';
+  ctx.fillText('prem GAS per arrencar',LW/2,LH*0.64);
+}
+
+// ═══════════════════════════════════════════════
+//  ESTAT
+// ═══════════════════════════════════════════════
+let G={on:false,score:0,dist:0,hp:3,spd:0,maxSpd:3.5,mx:LW/2,tx:LW/2,lean:0,frame:0};
+
+function update(){
+  if(!G.on)return;
+  G.frame++;
+  if(K['ArrowUp']||K[' '])   G.spd=Math.min(G.maxSpd,G.spd+0.07);
+  else                        G.spd=Math.max(0,G.spd-0.025);
+  if(K['ArrowDown'])          G.spd=Math.max(0,G.spd-0.12);
+  const lim=roadHW(1)*0.82-SDW*0.55;
+  if(K['ArrowLeft']){G.tx=Math.max(LW/2-lim,G.tx-G.spd*1.5);G.lean=Math.max(-1,G.lean-0.16);}
+  else if(K['ArrowRight']){G.tx=Math.min(LW/2+lim,G.tx+G.spd*1.5);G.lean=Math.min(1,G.lean+0.16);}
+  else G.lean*=0.82;
+  G.mx+=(G.tx-G.mx)*0.16;
+  G.dist+=G.spd; G.score+=(G.spd*0.2)|0;
+}
+
+function render(){
+  ctx.clearRect(0,0,LW,LH);
+  drawSky();
+  drawTerrain();
+  drawVeg();
+  const wp=(G.frame/2)|0;
+  drawMoto((G.mx-SDW/2)|0,(LH-SDH-6)|0,G.lean,wp);
+  drawHUD();
+  if(!G.on)drawStart();
+}
+(function loop(){update();render();requestAnimationFrame(loop);})();
+</script>
+</body>
+</html>
