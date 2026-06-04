@@ -24,13 +24,14 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:no
 #bW.on{background:rgba(120,85,0,0.92);}
 #snd{position:fixed;top:8px;right:8px;z-index:20;
    background:rgba(15,15,15,0.70);border:2px solid rgba(255,255,255,0.30);
-   border-radius:9px;color:#fff;font-size:14px;padding:6px 11px;
-   font-family:monospace;-webkit-user-select:none;user-select:none;touch-action:manipulation;}
+   border-radius:10px;color:#fff;font-size:20px;line-height:1;
+   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+   padding:0;font-family:sans-serif;-webkit-user-select:none;user-select:none;touch-action:manipulation;}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<button id="snd">&#9654; SO</button>
+<button id="snd">&#128266;</button>
 <div id="ui">
   <div class="pad" id="padL">
     <div class="btn" id="bL">&#9664;</div>
@@ -126,7 +127,7 @@ function startMusic(){
 }
 function updateSndBtn(){
   var b=document.getElementById("snd");
-  if(b)b.innerHTML=sndOn?"&#10073;&#10073; SO":"&#9654; SO";
+  if(b)b.innerHTML=sndOn?"&#128266;":"&#128263;"; // altaveu amb so / silenciat
 }
 var sndBtn=document.getElementById("snd");
 function toggleSndHandler(e){
@@ -817,10 +818,10 @@ function drawHeart(x,y,full){
 }
 function drawHUD(){
   px(0,0,LW,13,"rgba(0,0,0,0.55)");
-  for(var i=0;i<5;i++)drawHeart(4+i*11,3,i<G.hp);
+  for(var i=0;i<7;i++)drawHeart(4+i*10,3,i<G.hp);
   ctx.font="bold 6px monospace";ctx.textAlign="left";
-  ctx.fillStyle="#ffd84a";ctx.fillText("KM "+(G.dist/100).toFixed(1),44,9);
-  ctx.fillStyle="#a8dcff";ctx.fillText(Math.round(G.spd*16)+" km/h",110,9);
+  ctx.fillStyle="#ffd84a";ctx.fillText("KM "+(G.dist/100).toFixed(1),78,9);
+  ctx.fillStyle="#a8dcff";ctx.fillText(Math.round(G.spd*16)+" km/h",140,9);
   ctx.textAlign="right";ctx.fillStyle="#9fe0ff";ctx.fillText(G.score+" pts",LW-4,9);
   // barra progrés
   var pct=Math.min(1,G.dist/G.goal);
@@ -896,7 +897,7 @@ function initGame(){
   mState="game";
   document.getElementById("ui").classList.add("show");
   G={
-    hp:5,dead:false,won:false,deadReason:"",
+    hp:7,dead:false,won:false,deadReason:"",
     score:0,dist:0,goal:9000,
     spd:3.0,minSpd:3.0,maxSpd:6.5,
     bikeX:LW/2,bikeTarget:LW/2,lean:0,
