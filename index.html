@@ -446,6 +446,7 @@ function drawCloud(cx,cy){
 
 function drawPedraforca() {
   var BASE = HOR;
+  ctx.save();ctx.translate(-Math.sin(heading)*110,0);
   // Pedraforca petit, al fons a la dreta — escala 0.45x respecte l'anterior
   var CX  = LW * 0.68;
   var SC  = 0.50;
@@ -554,12 +555,14 @@ function drawPedraforca() {
   ctx.lineTo(CX-10,h(12)); ctx.lineTo(CX,h(6));
   ctx.lineTo(CX+52,h(6)); ctx.lineTo(CX+58,h(10)); ctx.lineTo(CX+60,BASE);
   ctx.closePath(); ctx.fill();
+  ctx.restore();
 }
 
 
 // Capes de muntanyes llunyanes amb boira atmosfèrica
 function drawMountainLayers(){
   var base=HOR;
+  ctx.save();ctx.translate(-Math.sin(heading)*180,0);
   // capa 3 (més llunyana, més clara/blava)
   ctx.fillStyle="#5a6e8c";
   ctx.beginPath();ctx.moveTo(0,base);
@@ -576,23 +579,26 @@ function drawMountainLayers(){
   var fog=ctx.createLinearGradient(0,base-14,0,base);
   fog.addColorStop(0,"rgba(180,200,220,0)");
   fog.addColorStop(1,"rgba(190,205,225,0.35)");
-  ctx.fillStyle=fog;ctx.fillRect(0,base-14,LW,14);
+  ctx.fillStyle=fog;ctx.fillRect(-300,base-14,LW+600,14);
+  ctx.restore();
 }
 
 function drawSky(){
   var rh=HOR/SKY.length;
   for(var i=0;i<SKY.length;i++)px(0,(i*rh)|0,LW,(rh+1)|0,SKY[i]);
-  // sol suau
+  // sol (lleuger parallax)
+  var sunOff=-Math.sin(heading)*60;
   ctx.fillStyle="rgba(255,240,200,0.18)";
-  ctx.beginPath();ctx.arc(LW*0.22,HOR*0.55,26,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(LW*0.22+sunOff,HOR*0.55,26,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="rgba(255,250,230,0.30)";
-  ctx.beginPath();ctx.arc(LW*0.22,HOR*0.55,15,0,Math.PI*2);ctx.fill();
-  // nuvols
+  ctx.beginPath();ctx.arc(LW*0.22+sunOff,HOR*0.55,15,0,Math.PI*2);ctx.fill();
+  // nuvols (parallax fort — els núvols es desplacen amb el cap)
+  var cloudOff=-Math.sin(heading)*260;
   for(var c=0;c<CLOUDS.length;c++){
     var cl=CLOUDS[c];cl.x-=cl.sp;if(cl.x<-30)cl.x=LW+30;
-    drawCloud(cl.x,cl.y);
+    drawCloud(cl.x+cloudOff,cl.y);
   }
-  // capes de muntanyes llunyanes (parallax, abans del Pedraforca)
+  // capes de muntanyes (parallax mig)
   drawMountainLayers();
   // pedraforca
   drawPedraforca();
@@ -622,8 +628,8 @@ function updateCurve(spd){
     curveTimer=120+Math.random()*120;
   }
   curve+=(curveTarget-curve)*0.02;
-  heading+=curve*0.0048;
-  heading*=0.997;
+  heading+=curve*0.006;
+  heading*=0.992;
   roadDist+=spd;
 }
 
@@ -659,9 +665,11 @@ function drawRoad(){
         // vorera de terra
         rr=148;gg=96;bb=46;
       } else {
-        // herba amb bandes d'intensitat
-        var xb=((wx*0.22)|0)&1;
-        rr=xb?60:48;gg=xb?95:77;bb=xb?34:28;
+        // herba: quadrícula en espai-món (visible en rotar)
+        var xb=((wx*0.12)|0)&1;
+        var zb2=((wz*0.07)|0)&1;
+        var pat=(xb^zb2);
+        rr=pat?62:44;gg=pat?98:74;bb=pat?36:26;
       }
       // boira atmosfèrica: desapareix cap a l'horitzó
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
