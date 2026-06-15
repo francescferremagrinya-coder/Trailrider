@@ -656,7 +656,9 @@ function updateCurve(spd){
 }
 
 // ── CAMÍ MODE 7 (perspectiva rotatòria tipus SNES) ───────────────────
+var _m7ok=true; // fallback si el dispositiu no suporta putImageData
 function drawRoad(){
+  if(!_m7ok){drawRoadFallback();return;}
   var gH=LH-HOR;
   if(!_m7img)_m7img=ctx.createImageData(LW,gH);
   var pix=_m7img.data;
@@ -702,7 +704,19 @@ function drawRoad(){
       pi+=4;wx+=dsx;wz+=dsz;
     }
   }
-  ctx.putImageData(_m7img,0,HOR);
+  try{ctx.putImageData(_m7img,0,HOR);}catch(e){_m7ok=false;}
+}
+function drawRoadFallback(){
+  var gH=LH-HOR;
+  // herba
+  ctx.fillStyle="#3a5c20";ctx.fillRect(0,HOR,LW,gH);
+  // camí
+  var cx=LW/2-Math.sin(heading)*M7_FH;
+  var pts=[[cx-128,LH],[cx+128,LH],[cx-2,HOR],[cx+2,HOR]];
+  ctx.fillStyle="#b07840";ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);
+  ctx.lineTo(pts[3][0],pts[3][1]);ctx.lineTo(pts[2][0],pts[2][1]);
+  ctx.closePath();ctx.fill();
 }
 
 // ── ARBRES LATERALS (decoració, vénen cap a tu) ──────
@@ -1702,7 +1716,10 @@ function render(){
 }
 
 // ── BUCLE PRINCIPAL ──────────────────────────────────
-function loop(){update();render();requestAnimationFrame(loop);}
+function loop(){
+  try{update();render();}catch(e){console.error("loop error:",e);}
+  requestAnimationFrame(loop);
+}
 loop();
 </script>
 </body>
