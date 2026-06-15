@@ -607,7 +607,10 @@ var roadDist=0;
 var curve=0;       // curvatura actual
 var curveTarget=0; // cap on va
 var curveTimer=0;
-var roadCenterShift=0; // desplaçament acumulat del centre (visual)
+var heading=0;     // angle de càmera Mode 7 (radians)
+// Constants Mode 7
+var M7_CAM_H=15,M7_ROAD=10,M7_SHLDR=3.5,M7_FH=192;
+var _m7img=null;
 
 function updateCurve(spd){
   curveTimer--;
@@ -619,84 +622,57 @@ function updateCurve(spd){
     curveTimer=120+Math.random()*120;
   }
   curve+=(curveTarget-curve)*0.02;
-  roadCenterShift+=curve*spd*0.6;
-  // la moto tendeix a tornar al centre del camí visualment
-  roadCenterShift*=0.96;
+  heading+=curve*0.0048;
+  heading*=0.997;
   roadDist+=spd;
 }
 
-// Dibuixa el camí scanline de BAIX (prop) cap a HORITZÓ (lluny)
+// ── CAMÍ MODE 7 (perspectiva rotatòria tipus SNES) ───────────────────
 function drawRoad(){
-  var groundH=LH-HOR;
-  for(var sy=LH-1;sy>=HOR;sy--){
-    var t=(LH-1-sy)/groundH;            // 0 prop, 1 lluny
-    var persp=1-t;                       // 1 prop, 0 lluny
-    var w=(LW*0.54)*persp+7*t;
-    var cx=LW/2 - roadCenterShift*t*t*2.2;
-    var x0=(cx-w/2)|0, x1=(cx+w/2)|0;
-
-    // ── HERBA lateral amb degradat de profunditat ──
-    // verd més fosc a prop, més clar i bromós lluny
-    var gr=(58+t*34)|0, gg=(92+t*40)|0, gb=(34+t*30)|0;
-    // bandes d'herba que es mouen
-    var gband=Math.floor((t*48 - roadDist*0.22))%2;gband=(gband+2)%2;
-    if(gband===0){gr-=10;gg-=12;gb-=6;}
-    ctx.fillStyle="rgb("+gr+","+gg+","+gb+")";
-    ctx.fillRect(0,sy,LW,1);
-
-    // taques d'herba (matolls llunyans) — soroll determinista
-    var noise=((sy*131+ (roadDist|0)*7)%97);
-    if(noise<10&&persp>0.15){
-      var bx=((sy*53)%LW);
-      ctx.fillStyle="rgba(40,70,24,0.5)";
-      ctx.fillRect(bx,sy,2+((noise)%3),1);
-    }
-
-    // ── VORERA de terra (transició herba-camí) ──
-    var dw=Math.max(2,(w*0.16)|0);
-    var dband=Math.floor((t*60 - roadDist*0.30))%2;dband=(dband+2)%2;
-    var dr=dband===0?150:134, dg=dband===0?96:84, db=dband===0?48:40;
-    ctx.fillStyle="rgb("+dr+","+dg+","+db+")";
-    ctx.fillRect(x0-dw,sy,dw,1);
-    ctx.fillRect(x1,sy,dw,1);
-
-    // ── CAMÍ de terra amb gradient lateral (volum) ──
-    var rband=Math.floor((t*60 - roadDist*0.30))%2;rband=(rband+2)%2;
-    // color base terra batuda
-    var br=rband===0?176:162, bg=rband===0?124:112, bb=rband===0?64:54;
-    if(x1>x0){
-      // gradient: centre clar, vores fosques (com terra trepitjada)
-      var grad=ctx.createLinearGradient(x0,0,x1,0);
-      grad.addColorStop(0,"rgb("+(br-22)+","+(bg-20)+","+(bb-14)+")");
-      grad.addColorStop(0.5,"rgb("+br+","+bg+","+bb+")");
-      grad.addColorStop(1,"rgb("+(br-22)+","+(bg-20)+","+(bb-14)+")");
-      ctx.fillStyle=grad;
-      ctx.fillRect(x0,sy,x1-x0,1);
-    }
-
-    // ── GRAVA / pedretes (textura procedural) ──
-    if(persp>0.2){
-      var g1=((sy*197+(roadDist|0)*11)%131);
-      if(g1<14){
-        var gx=x0+((sy*71)%Math.max(1,(x1-x0)));
-        var gs=persp>0.6?2:1;
-        ctx.fillStyle=g1<5?"rgba(210,185,140,0.7)":"rgba(120,80,40,0.55)";
-        ctx.fillRect(gx,sy,gs,gs);
+  var gH=LH-HOR;
+  if(!_m7img)_m7img=ctx.createImageData(LW,gH);
+  var pix=_m7img.data;
+  var cosH=Math.cos(heading),sinH=Math.sin(heading);
+  var camZ=roadDist;
+  var CAM=M7_CAM_H,ROAD=M7_ROAD,SHLDR=M7_SHLDR,FH=M7_FH;
+  for(var irow=0;irow<gH;irow++){
+    // irow=0: just below horizon (far); irow=gH-1: bottom (close)
+    var d=CAM*gH/(irow+1);
+    // world coords of leftmost pixel on this scanline
+    var wx=sinH*d-cosH*(LW/2)*d/FH;
+    var wz=camZ+cosH*d+sinH*(LW/2)*d/FH;
+    // world step per pixel
+    var dsx=cosH*d/FH;
+    var dsz=-sinH*d/FH;
+    var pi=irow*LW*4;
+    for(var px=0;px<LW;px++){
+      var absWX=wx<0?-wx:wx;
+      var zb=((wz*0.2)|0)&1;
+      var rr,gg,bb;
+      if(absWX<ROAD){
+        // camí de terra batuda amb bandes longitudinals
+        rr=zb?176:158;gg=zb?122:108;bb=zb?64:54;
+        // roderes: franges subtils
+        var rut=absWX/ROAD;
+        if(rut>0.18&&rut<0.28){rr=(rr*0.80)|0;gg=(gg*0.80)|0;bb=(bb*0.80)|0;}
+      } else if(absWX<ROAD+SHLDR){
+        // vorera de terra
+        rr=148;gg=96;bb=46;
+      } else {
+        // herba amb bandes d'intensitat
+        var xb=((wx*0.22)|0)&1;
+        rr=xb?60:48;gg=xb?95:77;bb=xb?34:28;
       }
+      // boira atmosfèrica: desapareix cap a l'horitzó
+      var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
+      rr=(rr*(1-fog)+190*fog)|0;
+      gg=(gg*(1-fog)+205*fog)|0;
+      bb=(bb*(1-fog)+225*fog)|0;
+      pix[pi]=rr;pix[pi+1]=gg;pix[pi+2]=bb;pix[pi+3]=255;
+      pi+=4;wx+=dsx;wz+=dsz;
     }
-
-    // ── RODERES amb profunditat (ombra + llum) ──
-    var rud=Math.max(1,(w*0.055)|0);
-    var rl=(cx-w*0.22)|0, rr2=(cx+w*0.22)|0;
-    // ombra de la rodera
-    ctx.fillStyle="rgba(70,42,12,0.5)";
-    ctx.fillRect(rl,sy,rud,1);
-    ctx.fillRect(rr2,sy,rud,1);
-    // llum a la vora de la rodera (relleu)
-    ctx.fillStyle="rgba(210,170,110,0.25)";
-    ctx.fillRect(rl-1,sy,1,1);
-    ctx.fillRect(rr2+rud,sy,1,1);
   }
+  ctx.putImageData(_m7img,0,HOR);
 }
 
 // ── ARBRES LATERALS (decoració, vénen cap a tu) ──────
@@ -751,9 +727,10 @@ function drawTrees(){
     var tr=sorted[i];
     var t=tr.d;
     var sy=HOR+(1-t)*(LH-HOR);
-    var w=(LW*0.54)*(1-t)+8*t;
-    var cx=LW/2 - roadCenterShift*t*t*2.2;
-    var treeX=cx+tr.side*(w/2+w*tr.off);
+    var camSpZt=M7_CAM_H/(1-t+0.003);
+    var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
+    var cx=LW/2-Math.sin(heading)*M7_FH;
+    var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
     var sc=(1-t)*2.8+0.12;
@@ -1175,8 +1152,9 @@ function spawnObs(){
 function obsScreen(o){
   var t=o.d; // 1 lluny, 0 prop
   var sy=HOR+(1-t)*(LH-HOR);
-  var w=(LW*0.52)*(1-t)+8*t;       // amplada del camí a aquesta t
-  var cx=LW/2 - roadCenterShift*t*t*2.2;
+  var camSpZ=M7_CAM_H/(1-t+0.003);
+  var w=M7_ROAD*2*M7_FH/camSpZ;
+  var cx=LW/2-Math.sin(heading)*M7_FH;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
@@ -1548,7 +1526,7 @@ function drawVillage(){
 var G={};
 function initGame(){
   obs=[];splashes=[];dustP=[];trees=[];comboTexts=[];flames=[];obsTimer=0;
-  roadDist=0;curve=0;curveTarget=0;curveTimer=0;roadCenterShift=0;
+  roadDist=0;curve=0;curveTarget=0;curveTimer=0;heading=0;
   mState="game";
   document.getElementById("ui").classList.add("show");
   G={
