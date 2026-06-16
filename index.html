@@ -474,7 +474,7 @@ function drawCloud(cx,cy){
 
 function drawPedraforca() {
   var BASE = HOR;
-  ctx.save();ctx.translate(-Math.sin(heading)*110,0);
+  ctx.save();ctx.translate(-Math.sin(heading)*220,0);
   // Pedraforca petit, al fons a la dreta — escala 0.45x respecte l'anterior
   var CX  = LW * 0.68;
   var SC  = 0.50;
@@ -590,7 +590,7 @@ function drawPedraforca() {
 // Capes de muntanyes llunyanes amb boira atmosfèrica
 function drawMountainLayers(){
   var base=HOR;
-  ctx.save();ctx.translate(-Math.sin(heading)*180,0);
+  ctx.save();ctx.translate(-Math.sin(heading)*320,0);
   // capa 3 (més llunyana, més clara/blava)
   ctx.fillStyle="#5a6e8c";
   ctx.beginPath();ctx.moveTo(0,base);
@@ -615,13 +615,13 @@ function drawSky(){
   var rh=HOR/SKY.length;
   for(var i=0;i<SKY.length;i++)px(0,(i*rh)|0,LW,(rh+1)|0,SKY[i]);
   // sol (lleuger parallax)
-  var sunOff=-Math.sin(heading)*60;
+  var sunOff=-Math.sin(heading)*140;
   ctx.fillStyle="rgba(255,240,200,0.18)";
   ctx.beginPath();ctx.arc(LW*0.22+sunOff,HOR*0.55,26,0,Math.PI*2);ctx.fill();
   ctx.fillStyle="rgba(255,250,230,0.30)";
   ctx.beginPath();ctx.arc(LW*0.22+sunOff,HOR*0.55,15,0,Math.PI*2);ctx.fill();
   // nuvols (parallax fort — els núvols es desplacen amb el cap)
-  var cloudOff=-Math.sin(heading)*260;
+  var cloudOff=-Math.sin(heading)*420;
   for(var c=0;c<CLOUDS.length;c++){
     var cl=CLOUDS[c];cl.x-=cl.sp;if(cl.x<-30)cl.x=LW+30;
     drawCloud(cl.x+cloudOff,cl.y);
@@ -656,9 +656,11 @@ function updateCurve(spd){
     curveTimer=90+Math.random()*100;
   }
   curve+=(curveTarget-curve)*0.035;
-  // heading acumula la direcció: el fons fa panoràmica durant les corbes
-  heading+=curve*0.045;
-  heading*=0.965;
+  // heading = rotació del món (Mode 7): s'acumula amb la corba
+  heading+=curve*0.022;
+  heading*=0.978;
+  // limitar a ±0.9 rad per mantenir Mode 7 coherent (no girar més de 52°)
+  if(heading>0.9)heading=0.9; if(heading<-0.9)heading=-0.9;
   roadDist+=spd;
 }
 
@@ -674,34 +676,37 @@ function drawRoad(){
   var CAM=M7_CAM_H,ROAD=M7_ROAD,SHLDR=M7_SHLDR,FH=M7_FH;
   for(var irow=0;irow<gH;irow++){
     var d=CAM*gH/(irow+1);
-    // Mode 7: coordenades món per textura de l'herba
+    // Mode 7: coordenades món — la rotació de heading fa girar TOT el terra
     var wx=sinH*d-cosH*(LW/2)*d/FH;
     var wz=camZ+cosH*d+sinH*(LW/2)*d/FH;
     var dsx=cosH*d/FH,dsz=-sinH*d/FH;
-    // CORBA MODE 7: el centre del camí es desplaça per perspectiva
-    // A prop (irow gran) = centrat; lluny (irow petit) = màxim desplaçament
-    var cf=(gH-irow-1)/gH; cf=cf*cf; // quadràtic: efecte perspectiva
-    var roadCX=LW/2+curve*cf*300;    // 220px màx desplaçament a l'horitzó
-    var halfR=ROAD*FH/d;             // meitat amplada camí en píxels
-    var halfRS=(ROAD+SHLDR)*FH/d;    // meitat camí+vorera
+    // Camí en espai-món: corba quadràticament amb la distància
+    // -> el camí rota AMB el terra quan heading canvia (veritable Mode 7)
+    var dz=d;  // distància aproximada cap endavant
+    var roadCenterW=curve*dz*dz*0.00014; // camí corba en espai-món
+    var halfR=ROAD*FH/d;
+    var halfRS=(ROAD+SHLDR)*FH/d;
     var pi=irow*LW*4;
     for(var px=0;px<LW;px++){
-      var dist=px-roadCX; var aDist=dist<0?-dist:dist;
+      // distància del píxel al centre del camí en espai-món
+      var wXrel=wx-roadCenterW;
+      var aDist=wXrel<0?-wXrel:wXrel;
+      // convertir a píxels per comparar amb halfR
+      var aDistPx=aDist*FH/d;
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
-      if(aDist<halfR){
-        // camí de terra batuda (sense línies pintades)
+      if(aDistPx<halfR){
+        // camí de terra batuda
         rr=zb?172:156;gg=zb?126:112;bb=zb?78:66;
-        // taques de terra més fosca (textura natural)
-        var tb=((wz*0.5)|0)&1, tx=((aDist*0.4)|0)&1;
+        var tb=((wz*0.5)|0)&1,tx=((aDist*0.4)|0)&1;
         if(tb^tx){rr=(rr*0.92)|0;gg=(gg*0.92)|0;bb=(bb*0.92)|0;}
-      } else if(aDist<halfRS){
+      } else if(aDistPx<halfRS){
         rr=148;gg=96;bb=46;
       } else {
-        // herba: quadrícula Mode 7 (rota amb heading)
-        var xb=((wx*0.12)|0)&1,zb2=((wz*0.07)|0)&1;
+        // herba: quadrícula GRAN per veure clarament la rotació del terra
+        var xb=((wx*0.055)|0)&1,zb2=((wz*0.038)|0)&1;
         var pat=(xb^zb2);
-        rr=pat?62:44;gg=pat?98:74;bb=pat?36:26;
+        rr=pat?68:38;gg=pat?108:62;bb=pat?40:22;  // més contrast
       }
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
       rr=(rr*(1-fog)+190*fog)|0;
@@ -780,7 +785,7 @@ function drawTrees(){
     var sy=HOR+(1-t)*(LH-HOR);
     var camSpZt=M7_CAM_H/(1-t+0.003);
     var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
-    var cx=LW/2+curve*t*t*300;
+    var dObs=M7_CAM_H/(1-t+0.003); var roadCWobs=curve*dObs*dObs*0.00014; var cx=LW/2+roadCWobs*M7_FH/dObs;
     var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
@@ -1205,7 +1210,7 @@ function obsScreen(o){
   var sy=HOR+(1-t)*(LH-HOR);
   var camSpZ=M7_CAM_H/(1-t+0.003);
   var w=M7_ROAD*2*M7_FH/camSpZ;
-  var cx=LW/2+curve*t*t*300;
+  var dObs=M7_CAM_H/(1-t+0.003); var roadCWobs=curve*dObs*dObs*0.00014; var cx=LW/2+roadCWobs*M7_FH/dObs;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
