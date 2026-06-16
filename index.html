@@ -429,8 +429,10 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
   var driftThresh=1.30;
   var totalLean=lean;
   if(!wheelieOn&&imgDrift.complete&&imgDrift.naturalWidth>0&&Math.abs(totalLean)>driftThresh){
-    // Forcem exactament NW×NH per evitar salt de mida
-    var dW=NW,dH=NH;
+    // Mantenim l'alçada de la moto normal, deixem l'amplada proporcional (max 2×NW)
+    var _dh=imgDrift.naturalHeight||NH;
+    var _sc=NH/_dh;
+    var dW=Math.min((imgDrift.naturalWidth*_sc)|0, NW*2)|0, dH=NH;
     ctx.save();
     if(totalLean>0){
       // gir dreta → imatge mirallada, centrada a cx
@@ -1689,38 +1691,56 @@ function render(){
   // moto
   var groundY=LH-8;
   drawMoto(G.bikeX,groundY,G.lean+(G.curveLean||0),G.jumpY,G.wheelie>0.5);
-  // efecte túnel: línies estels fugaços que surten del punt de fuga (VP) cap a fora
-  // Angles FIXOS (no giren), els segments avancen des de VP cap als marges → com objectes
+  // ── TÚNEL GALÀCTIC / FORAT NEGRE ──────────────────────────────────────
   if(G.nitroActive){
     var vpx=LW/2, vpy=HOR;
-    var N=44;
-    var seg=260; // llargada total del recorregut per segment
     ctx.save();
-    for(var sl=0;sl<N;sl++){
-      var ang=(sl/N)*Math.PI*2; // angle fix
-      var d0=((G.frame*7+sl*(seg/N))%seg)+10;
-      var d1=d0+48+((sl*17)%30);
-      var alpha=Math.min(1,d0/seg*1.4);
-      var x0=vpx+Math.cos(ang)*d0, y0=vpy+Math.sin(ang)*d0;
-      var x1=vpx+Math.cos(ang)*d1, y1=vpy+Math.sin(ang)*d1;
-      var col=sl%3===0?"rgba(255,255,190,":(sl%3===1?"rgba(255,140,25,":"rgba(130,215,255,");
-      ctx.strokeStyle=col+(0.45+alpha*0.55).toFixed(2)+")";
-      ctx.lineWidth=sl%5===0?2.8:1.3;
-      ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+
+    // 1. Anells concèntrics que s'expandeixen des del VP → sensació de túnel
+    var RING_COLS=["rgba(80,0,255,","rgba(0,180,255,","rgba(200,0,255,","rgba(0,255,180,","rgba(255,60,200,"];
+    for(var rr=0;rr<10;rr++){
+      var rad=((G.frame*5+rr*26)%260)+4;
+      var ral=Math.max(0,1-rad/260);
+      ctx.strokeStyle=RING_COLS[rr%RING_COLS.length]+(0.25+ral*0.65).toFixed(2)+")";
+      ctx.lineWidth=rr%3===0?2.5:1.2;
+      ctx.beginPath();ctx.arc(vpx,vpy,rad,0,Math.PI*2);ctx.stroke();
     }
+
+    // 2. Estels fugaços: angles FIXOS, avanços cap a fora (com els objectes del camí)
+    var STRK_COLS=["rgba(60,20,255,","rgba(0,200,255,","rgba(180,0,255,","rgba(255,255,200,","rgba(0,255,200,"];
+    var NST=48, SEG=280;
+    for(var sl=0;sl<NST;sl++){
+      var ang=(sl/NST)*Math.PI*2; // angle fix, no gira
+      var d0=((G.frame*8+sl*(SEG/NST))%SEG)+6;
+      var d1=d0+55+((sl*13)%35);
+      var sal=Math.min(1,d0/SEG*1.5);
+      ctx.strokeStyle=STRK_COLS[sl%STRK_COLS.length]+(0.40+sal*0.60).toFixed(2)+")";
+      ctx.lineWidth=sl%6===0?3.2:1.4;
+      ctx.beginPath();
+      ctx.moveTo(vpx+Math.cos(ang)*d0, vpy+Math.sin(ang)*d0);
+      ctx.lineTo(vpx+Math.cos(ang)*d1, vpy+Math.sin(ang)*d1);
+      ctx.stroke();
+    }
+
     ctx.restore();
-    // glow taronja al VP (horitzó)
-    var fl=ctx.createRadialGradient(vpx,vpy,0,vpx,vpy,85);
-    fl.addColorStop(0,"rgba(255,210,80,0.50)");
-    fl.addColorStop(0.5,"rgba(255,110,20,0.20)");
-    fl.addColorStop(1,"rgba(255,60,0,0)");
-    ctx.fillStyle=fl;ctx.beginPath();ctx.arc(vpx,vpy,85,0,Math.PI*2);ctx.fill();
-    // vinyeta fosca als cantons
-    var vg=ctx.createRadialGradient(vpx,LH*0.5,LH*0.05,vpx,LH*0.5,LW*0.72);
-    vg.addColorStop(0,"rgba(0,0,0,0)");
-    vg.addColorStop(0.55,"rgba(20,8,50,0.15)");
-    vg.addColorStop(1,"rgba(10,0,40,0.72)");
-    ctx.fillStyle=vg;ctx.fillRect(0,0,LW,LH);
+
+    // 3. Forat negre: vinyeta molt fosca als cantons, centre transparent
+    var bh=ctx.createRadialGradient(vpx,vpy,10,vpx,vpy,LW*0.75);
+    bh.addColorStop(0,"rgba(30,0,80,0.10)");
+    bh.addColorStop(0.35,"rgba(10,0,50,0.45)");
+    bh.addColorStop(1,"rgba(0,0,10,0.92)");
+    ctx.fillStyle=bh;ctx.fillRect(0,0,LW,LH);
+
+    // 4. Glow violeta/blanc al centre (singularitat del forat negre)
+    var sg=ctx.createRadialGradient(vpx,vpy,0,vpx,vpy,50);
+    sg.addColorStop(0,"rgba(240,220,255,0.95)");
+    sg.addColorStop(0.3,"rgba(150,80,255,0.60)");
+    sg.addColorStop(0.7,"rgba(60,0,180,0.25)");
+    sg.addColorStop(1,"rgba(0,0,60,0)");
+    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(vpx,vpy,50,0,Math.PI*2);ctx.fill();
+
+    // 5. Tint galàctic sobre tota la pantalla (blau-violeta suau)
+    ctx.fillStyle="rgba(20,0,60,0.18)";ctx.fillRect(0,0,LW,LH);
   }
   ctx.restore();
   // flash de dany (vermell) o curació (verd)
