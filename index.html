@@ -426,18 +426,18 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
     ctx.beginPath();ctx.ellipse(cx,groundY,NW*0.40,4,0,0,Math.PI*2);ctx.fill();
   }
   // Inclinació forta → imatge drift
-  var driftThresh=0.30;
+  var driftThresh=0.75;
   var totalLean=lean;
   if(!wheelieOn&&imgDrift.complete&&imgDrift.naturalWidth>0&&Math.abs(totalLean)>driftThresh){
     var dw=imgDrift.naturalWidth,dh=imgDrift.naturalHeight;
-    var scale=NH/dh; // mateixa alçada que el sprite normal
+    var scale=(NH/dh)*1.5; // mida similar a sprite normal
     var dW=dw*scale,dH=dh*scale;
     ctx.save();
     if(totalLean>0){
-      // gir dreta → imatge mirallada
-      ctx.translate(cx+dW/2,groundY-dH+jumpY);
+      // gir dreta → imatge mirallada, centrada a cx
+      ctx.translate(cx,groundY-dH+jumpY);
       ctx.scale(-1,1);
-      ctx.drawImage(imgDrift,-dW/2|0,0,dW,dH);
+      ctx.drawImage(imgDrift,(-dW/2)|0,0,dW,dH);
     } else {
       // gir esquerra → imatge normal
       ctx.drawImage(imgDrift,(cx-dW/2)|0,(groundY-dH+jumpY)|0,dW,dH);
@@ -656,8 +656,8 @@ function updateCurve(spd){
     curveTimer=120+Math.random()*120;
   }
   curve+=(curveTarget-curve)*0.02;
-  heading+=curve*0.006;
-  heading*=0.992;
+  heading+=curve*0.010;
+  heading*=0.994;
   roadDist+=spd;
 }
 
@@ -688,9 +688,13 @@ function drawRoad(){
       if(absWX<ROAD){
         // camí de terra batuda amb bandes longitudinals
         rr=zb?176:158;gg=zb?122:108;bb=zb?64:54;
+        // línia central blanca (visible en rotar)
+        if(absWX<0.7&&zb){rr=220;gg=215;bb=200;}
         // roderes: franges subtils
         var rut=absWX/ROAD;
         if(rut>0.18&&rut<0.28){rr=(rr*0.80)|0;gg=(gg*0.80)|0;bb=(bb*0.80)|0;}
+        // vores de la pista: línies grogues
+        if(rut>0.88&&rut<1.0){rr=200;gg=185;bb=60;}
       } else if(absWX<ROAD+SHLDR){
         // vorera de terra
         rr=148;gg=96;bb=46;
