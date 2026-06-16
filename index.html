@@ -657,10 +657,10 @@ function updateCurve(spd){
   }
   curve+=(curveTarget-curve)*0.035;
   // heading = rotació del món (Mode 7): s'acumula amb la corba
-  heading+=curve*0.022;
-  heading*=0.978;
-  // limitar a ±0.9 rad per mantenir Mode 7 coherent (no girar més de 52°)
-  if(heading>0.9)heading=0.9; if(heading<-0.9)heading=-0.9;
+  heading+=curve*0.030;
+  heading*=0.972;
+  // limitar a ±1.1 rad per rotació de textura dramàtica
+  if(heading>1.1)heading=1.1; if(heading<-1.1)heading=-1.1;
   roadDist+=spd;
 }
 
@@ -682,7 +682,7 @@ function drawRoad(){
     var dsx=cosH*d/FH,dsz=-sinH*d/FH;
     // Centre del camí per scanline: a prop=centrat, lluny=desplaçat per corba
     var cf=(gH-irow-1)/gH; cf=cf*cf;
-    var roadCX=LW/2+curve*cf*55;   // desplaçament suau (sensació via heading)
+    var roadCX=LW/2+curve*cf*28;   // petit desplaçament: corba visible però rider sempre dins
     var halfR=ROAD*FH/d;
     var halfRS=(ROAD+SHLDR)*FH/d;
     var pi=irow*LW*4;
@@ -780,7 +780,7 @@ function drawTrees(){
     var sy=HOR+(1-t)*(LH-HOR);
     var camSpZt=M7_CAM_H/(1-t+0.003);
     var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
-    var cx=LW/2+curve*t*t*55;
+    var cx=LW/2+curve*t*t*28;
     var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
@@ -1205,7 +1205,7 @@ function obsScreen(o){
   var sy=HOR+(1-t)*(LH-HOR);
   var camSpZ=M7_CAM_H/(1-t+0.003);
   var w=M7_ROAD*2*M7_FH/camSpZ;
-  var cx=LW/2+curve*t*t*55;
+  var cx=LW/2+curve*t*t*28;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
@@ -1635,12 +1635,13 @@ function update(){
   G.curveLean+=((curve*0.8)-G.curveLean)*0.06;
   // El motorista segueix el camí: en una corba a la dreta, es desplaça a la dreta
   // Usem el centre de camí a distància mitjana (t≈0.45) com a referència
+  // Rider segueix el camí: pull cap al centre del camí a distància mitjana
   var cfFollow=0.45*0.45;
-  var roadCenterFollow=LW/2+curve*cfFollow*55; // centre on hauria d'estar el bike
-  G.bikeTarget+=(roadCenterFollow-G.bikeX)*0.05; // pull suau cap al camí
-  // Límit del camí (en funció del centre de camí proper)
+  var roadCenterFollow=LW/2+curve*cfFollow*28;
+  G.bikeTarget+=(roadCenterFollow-G.bikeX)*0.08;
+  // Límit: rider no pot sortir del camí (mesurat a prop del rider)
   var roadHalfPxNear=M7_ROAD*M7_FH/M7_CAM_H;
-  var roadCXNear=LW/2+curve*0.08*55; // centre a prop (cf petit)
+  var roadCXNear=LW/2+curve*0.04*28;
   var bikeMinX=roadCXNear-roadHalfPxNear+NW*0.6;
   var bikeMaxX=roadCXNear+roadHalfPxNear-NW*0.6;
   G.bikeTarget=Math.max(bikeMinX,Math.min(bikeMaxX,G.bikeTarget));
