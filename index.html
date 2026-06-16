@@ -426,7 +426,7 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
     ctx.beginPath();ctx.ellipse(cx,groundY,NW*0.40,4,0,0,Math.PI*2);ctx.fill();
   }
   // Inclinació forta → imatge drift
-  var driftThresh=0.75;
+  var driftThresh=1.30;
   var totalLean=lean;
   if(!wheelieOn&&imgDrift.complete&&imgDrift.naturalWidth>0&&Math.abs(totalLean)>driftThresh){
     var dw=imgDrift.naturalWidth,dh=imgDrift.naturalHeight;
@@ -449,7 +449,7 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
   // Inclinació lateral lleugera
   if(lean!==0){
     ctx.translate(cx,topY+h);
-    ctx.transform(1,0,lean*0.07,1,0,0);
+    ctx.transform(1,0,lean*0.14,1,0,0);
     ctx.drawImage(img,-w/2|0,-h);
   } else {
     ctx.drawImage(img,(cx-w/2)|0,topY|0);
@@ -650,12 +650,12 @@ function updateCurve(spd){
   curveTimer--;
   if(curveTimer<=0){
     var r=Math.random();
-    if(r<0.45)curveTarget=0;
-    else if(r<0.72)curveTarget=-0.6-Math.random()*0.5;
-    else curveTarget=0.6+Math.random()*0.5;
-    curveTimer=120+Math.random()*120;
+    if(r<0.40)curveTarget=0;
+    else if(r<0.65)curveTarget=-(1.2+Math.random()*0.8);
+    else curveTarget=1.2+Math.random()*0.8;
+    curveTimer=90+Math.random()*100;
   }
-  curve+=(curveTarget-curve)*0.02;
+  curve+=(curveTarget-curve)*0.035;
   heading+=curve*0.010;
   heading*=0.994;
   roadDist+=spd;
@@ -680,7 +680,7 @@ function drawRoad(){
     // CORBA MODE 7: el centre del camí es desplaça per perspectiva
     // A prop (irow gran) = centrat; lluny (irow petit) = màxim desplaçament
     var cf=(gH-irow-1)/gH; cf=cf*cf; // quadràtic: efecte perspectiva
-    var roadCX=LW/2+curve*cf*220;    // 220px màx desplaçament a l'horitzó
+    var roadCX=LW/2+curve*cf*300;    // 220px màx desplaçament a l'horitzó
     var halfR=ROAD*FH/d;             // meitat amplada camí en píxels
     var halfRS=(ROAD+SHLDR)*FH/d;    // meitat camí+vorera
     var pi=irow*LW*4;
@@ -717,7 +717,7 @@ function drawRoadFallback(){
   // herba
   ctx.fillStyle="#3a5c20";ctx.fillRect(0,HOR,LW,gH);
   // camí
-  var cx=LW/2+curve*0.4*220;
+  var cx=LW/2+curve*0.4*300;
   var pts=[[cx-128,LH],[cx+128,LH],[cx-2,HOR],[cx+2,HOR]];
   ctx.fillStyle="#b07840";ctx.beginPath();
   ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);
@@ -779,7 +779,7 @@ function drawTrees(){
     var sy=HOR+(1-t)*(LH-HOR);
     var camSpZt=M7_CAM_H/(1-t+0.003);
     var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
-    var cx=LW/2+curve*t*t*220;
+    var cx=LW/2+curve*t*t*300;
     var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
@@ -1204,7 +1204,7 @@ function obsScreen(o){
   var sy=HOR+(1-t)*(LH-HOR);
   var camSpZ=M7_CAM_H/(1-t+0.003);
   var w=M7_ROAD*2*M7_FH/camSpZ;
-  var cx=LW/2+curve*t*t*220;
+  var cx=LW/2+curve*t*t*300;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
