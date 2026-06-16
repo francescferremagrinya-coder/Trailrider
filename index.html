@@ -430,7 +430,7 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
   var totalLean=lean;
   if(!wheelieOn&&imgDrift.complete&&imgDrift.naturalWidth>0&&Math.abs(totalLean)>driftThresh){
     var dw=imgDrift.naturalWidth,dh=imgDrift.naturalHeight;
-    var scale=(NH/dh)*1.5; // mida similar a sprite normal
+    var scale=NH/dh; // EXACTAMENT la mateixa alçada que la moto normal
     var dW=dw*scale,dH=dh*scale;
     ctx.save();
     if(totalLean>0){
@@ -643,7 +643,7 @@ var curveTarget=0; // cap on va
 var curveTimer=0;
 var heading=0;     // angle de càmera Mode 7 (radians)
 // Constants Mode 7
-var M7_CAM_H=15,M7_ROAD=10,M7_SHLDR=3.5,M7_FH=192;
+var M7_CAM_H=15,M7_ROAD=17,M7_SHLDR=4.5,M7_FH=192;
 var _m7img=null;
 
 function updateCurve(spd){
@@ -656,8 +656,9 @@ function updateCurve(spd){
     curveTimer=90+Math.random()*100;
   }
   curve+=(curveTarget-curve)*0.035;
-  heading+=curve*0.010;
-  heading*=0.994;
+  // heading acumula la direcció: el fons fa panoràmica durant les corbes
+  heading+=curve*0.045;
+  heading*=0.965;
   roadDist+=spd;
 }
 
@@ -689,11 +690,11 @@ function drawRoad(){
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
       if(aDist<halfR){
-        rr=zb?176:158;gg=zb?122:108;bb=zb?64:54;
-        // línia central blanca discontinua
-        if(aDist<halfR*0.06&&zb){rr=225;gg=220;bb=205;}
-        // vores grogues (12% interior)
-        if(aDist>halfR*0.88){rr=195;gg=180;bb=55;}
+        // camí de terra batuda (sense línies pintades)
+        rr=zb?172:156;gg=zb?126:112;bb=zb?78:66;
+        // taques de terra més fosca (textura natural)
+        var tb=((wz*0.5)|0)&1, tx=((aDist*0.4)|0)&1;
+        if(tb^tx){rr=(rr*0.92)|0;gg=(gg*0.92)|0;bb=(bb*0.92)|0;}
       } else if(aDist<halfRS){
         rr=148;gg=96;bb=46;
       } else {
@@ -1214,7 +1215,7 @@ function drawObs(o){
   var s=obsScreen(o);
   if(s.scale<0.02)return;
   if(o.type==="cow"){
-    var cw=(SPR_COW.width*(s.scale*2.0+0.12))|0,ch=(SPR_COW.height*(s.scale*2.0+0.12))|0;
+    var cw=(SPR_COW.width*(s.scale*1.05+0.10))|0,ch=(SPR_COW.height*(s.scale*1.05+0.10))|0;
     if(cw<2)return;
     ctx.fillStyle="rgba(0,0,0,0.22)";ctx.beginPath();ctx.ellipse(s.x,s.y,cw*0.36,ch*0.06,0,0,Math.PI*2);ctx.fill();
     ctx.drawImage(SPR_COW,(s.x-cw/2)|0,(s.y-ch)|0,cw,ch);
@@ -1603,7 +1604,8 @@ function update(){
   if(G.nitro>0){
     G.nitro=Math.max(0,G.nitro-0.22);
     G.nitroActive=true;
-    G.spd=Math.min(G.maxSpd*1.5,G.spd+0.09);
+    G.spd=Math.min(G.maxSpd*1.7,G.spd+0.14);
+    G.shake=Math.max(G.shake,2.2); // tremolor constant durant el turbo
   } else {
     G.nitroActive=false;
   }
@@ -1689,28 +1691,37 @@ function render(){
   drawMoto(G.bikeX,groundY,G.lean+(G.curveLean||0),G.jumpY,G.wheelie>0.5);
   // efecte coet: línies de velocitat GRANS al voltant del motorista
   if(G.nitroActive){
-    // centre = posició de la moto (una mica amunt, al cos del pilot)
     var cxv=G.bikeX, cyv=LH-NH*0.6;
-    for(var sl=0;sl<28;sl++){
-      var ang=(sl/28)*Math.PI*2+(G.frame*0.02);
-      // les línies neixen a una distància del motorista i s'allarguen molt
-      var d0=24+Math.random()*40;
-      var d1=d0+60+Math.random()*110;  // molt més llargues
-      var sq=0.85; // lleuger aixafament vertical
+    // MOLTES línies de velocitat, llargues i intenses (túnel exagerat)
+    for(var sl=0;sl<56;sl++){
+      var ang=(sl/56)*Math.PI*2+(G.frame*0.05);
+      var d0=14+Math.random()*30;
+      var d1=d0+120+Math.random()*200;  // moltíssim més llargues
+      var sq=0.82;
       var x0=cxv+Math.cos(ang)*d0;
       var y0=cyv+Math.sin(ang)*d0*sq;
       var x1=cxv+Math.cos(ang)*d1;
       var y1=cyv+Math.sin(ang)*d1*sq;
-      ctx.strokeStyle=sl%3===0?"rgba(255,255,220,0.60)":"rgba(255,205,90,0.42)";
-      ctx.lineWidth=sl%4===0?2.4:1.4;  // més gruixudes
+      ctx.strokeStyle=sl%3===0?"rgba(255,255,240,0.85)":(sl%3===1?"rgba(255,180,40,0.70)":"rgba(120,200,255,0.55)");
+      ctx.lineWidth=sl%4===0?3.4:1.8;
       ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
     }
-    // vinyeta centrada al motorista (túnel de velocitat)
-    var vg=ctx.createRadialGradient(cxv,cyv,LH*0.22,cxv,cyv,LW*0.62);
+    // flama/glow taronja darrere la moto
+    var fl=ctx.createRadialGradient(cxv,cyv,2,cxv,cyv,70);
+    fl.addColorStop(0,"rgba(255,240,180,0.55)");
+    fl.addColorStop(0.4,"rgba(255,140,30,0.30)");
+    fl.addColorStop(1,"rgba(255,80,0,0)");
+    ctx.fillStyle=fl;ctx.beginPath();ctx.arc(cxv,cyv,70,0,Math.PI*2);ctx.fill();
+    // tremolor + vinyeta forta (túnel de velocitat)
+    var vg=ctx.createRadialGradient(cxv,cyv,LH*0.14,cxv,cyv,LW*0.60);
     vg.addColorStop(0,"rgba(0,0,0,0)");
-    vg.addColorStop(0.7,"rgba(30,15,50,0.12)");
-    vg.addColorStop(1,"rgba(40,20,60,0.40)");
+    vg.addColorStop(0.55,"rgba(40,20,70,0.18)");
+    vg.addColorStop(1,"rgba(30,10,60,0.62)");
     ctx.fillStyle=vg;ctx.fillRect(0,0,LW,LH);
+    // pampallugues blaves de velocitat als marges
+    var fx=(G.frame*9)%LW;
+    ctx.fillStyle="rgba(150,210,255,0.20)";
+    ctx.fillRect(0,0,8,LH);ctx.fillRect(LW-8,0,8,LH);
   }
   ctx.restore();
   // flash de dany (vermell) o curació (verd)
