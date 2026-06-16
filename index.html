@@ -672,40 +672,36 @@ function drawRoad(){
   var camZ=roadDist;
   var CAM=M7_CAM_H,ROAD=M7_ROAD,SHLDR=M7_SHLDR,FH=M7_FH;
   for(var irow=0;irow<gH;irow++){
-    // irow=0: just below horizon (far); irow=gH-1: bottom (close)
     var d=CAM*gH/(irow+1);
-    // world coords of leftmost pixel on this scanline
+    // Mode 7: coordenades món per textura de l'herba
     var wx=sinH*d-cosH*(LW/2)*d/FH;
     var wz=camZ+cosH*d+sinH*(LW/2)*d/FH;
-    // world step per pixel
-    var dsx=cosH*d/FH;
-    var dsz=-sinH*d/FH;
+    var dsx=cosH*d/FH,dsz=-sinH*d/FH;
+    // CORBA MODE 7: el centre del camí es desplaça per perspectiva
+    // A prop (irow gran) = centrat; lluny (irow petit) = màxim desplaçament
+    var cf=(gH-irow-1)/gH; cf=cf*cf; // quadràtic: efecte perspectiva
+    var roadCX=LW/2+curve*cf*220;    // 220px màx desplaçament a l'horitzó
+    var halfR=ROAD*FH/d;             // meitat amplada camí en píxels
+    var halfRS=(ROAD+SHLDR)*FH/d;    // meitat camí+vorera
     var pi=irow*LW*4;
     for(var px=0;px<LW;px++){
-      var absWX=wx<0?-wx:wx;
+      var dist=px-roadCX; var aDist=dist<0?-dist:dist;
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
-      if(absWX<ROAD){
-        // camí de terra batuda amb bandes longitudinals
+      if(aDist<halfR){
         rr=zb?176:158;gg=zb?122:108;bb=zb?64:54;
-        // línia central blanca (visible en rotar)
-        if(absWX<0.7&&zb){rr=220;gg=215;bb=200;}
-        // roderes: franges subtils
-        var rut=absWX/ROAD;
-        if(rut>0.18&&rut<0.28){rr=(rr*0.80)|0;gg=(gg*0.80)|0;bb=(bb*0.80)|0;}
-        // vores de la pista: línies grogues
-        if(rut>0.88&&rut<1.0){rr=200;gg=185;bb=60;}
-      } else if(absWX<ROAD+SHLDR){
-        // vorera de terra
+        // línia central blanca discontinua
+        if(aDist<halfR*0.06&&zb){rr=225;gg=220;bb=205;}
+        // vores grogues (12% interior)
+        if(aDist>halfR*0.88){rr=195;gg=180;bb=55;}
+      } else if(aDist<halfRS){
         rr=148;gg=96;bb=46;
       } else {
-        // herba: quadrícula en espai-món (visible en rotar)
-        var xb=((wx*0.12)|0)&1;
-        var zb2=((wz*0.07)|0)&1;
+        // herba: quadrícula Mode 7 (rota amb heading)
+        var xb=((wx*0.12)|0)&1,zb2=((wz*0.07)|0)&1;
         var pat=(xb^zb2);
         rr=pat?62:44;gg=pat?98:74;bb=pat?36:26;
       }
-      // boira atmosfèrica: desapareix cap a l'horitzó
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
       rr=(rr*(1-fog)+190*fog)|0;
       gg=(gg*(1-fog)+205*fog)|0;
@@ -721,7 +717,7 @@ function drawRoadFallback(){
   // herba
   ctx.fillStyle="#3a5c20";ctx.fillRect(0,HOR,LW,gH);
   // camí
-  var cx=LW/2-Math.sin(heading)*M7_FH;
+  var cx=LW/2+curve*0.4*220;
   var pts=[[cx-128,LH],[cx+128,LH],[cx-2,HOR],[cx+2,HOR]];
   ctx.fillStyle="#b07840";ctx.beginPath();
   ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);
@@ -783,7 +779,7 @@ function drawTrees(){
     var sy=HOR+(1-t)*(LH-HOR);
     var camSpZt=M7_CAM_H/(1-t+0.003);
     var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
-    var cx=LW/2-Math.sin(heading)*M7_FH;
+    var cx=LW/2+curve*t*t*220;
     var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
@@ -1208,7 +1204,7 @@ function obsScreen(o){
   var sy=HOR+(1-t)*(LH-HOR);
   var camSpZ=M7_CAM_H/(1-t+0.003);
   var w=M7_ROAD*2*M7_FH/camSpZ;
-  var cx=LW/2-Math.sin(heading)*M7_FH;
+  var cx=LW/2+curve*t*t*220;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
