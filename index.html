@@ -1633,18 +1633,8 @@ function update(){
   // curve negatiu = corba esquerra, positiu = dreta
   G.curveLean=(G.curveLean||0);
   G.curveLean+=((curve*0.8)-G.curveLean)*0.06;
-  // El motorista segueix el camí: en una corba a la dreta, es desplaça a la dreta
-  // Usem el centre de camí a distància mitjana (t≈0.45) com a referència
-  // Rider segueix el camí: pull cap al centre del camí a distància mitjana
-  var cfFollow=0.45*0.45;
-  var roadCenterFollow=LW/2+curve*cfFollow*28;
-  G.bikeTarget+=(roadCenterFollow-G.bikeX)*0.08;
-  // Límit: rider no pot sortir del camí (mesurat a prop del rider)
-  var roadHalfPxNear=M7_ROAD*M7_FH/M7_CAM_H;
-  var roadCXNear=LW/2+curve*0.04*28;
-  var bikeMinX=roadCXNear-roadHalfPxNear+NW*0.6;
-  var bikeMaxX=roadCXNear+roadHalfPxNear-NW*0.6;
-  G.bikeTarget=Math.max(bikeMinX,Math.min(bikeMaxX,G.bikeTarget));
+  // El rider no torna sol al centre: simplement limita als marges de pantalla
+  G.bikeTarget=Math.max(NW*0.5,Math.min(LW-NW*0.5,G.bikeTarget));
   G.bikeX+=(G.bikeTarget-G.bikeX)*0.2;
 
   updateCurve(G.spd);
@@ -1700,39 +1690,40 @@ function render(){
   // moto
   var groundY=LH-8;
   drawMoto(G.bikeX,groundY,G.lean+(G.curveLean||0),G.jumpY,G.wheelie>0.5);
-  // efecte coet: línies de velocitat GRANS al voltant del motorista
+  // efecte túnel de velocitat: línies radiants des del punt de fuga del camí
   if(G.nitroActive){
-    var cxv=G.bikeX, cyv=LH-NH*0.6;
-    // MOLTES línies de velocitat, llargues i intenses (túnel exagerat)
-    for(var sl=0;sl<56;sl++){
-      var ang=(sl/56)*Math.PI*2+(G.frame*0.05);
-      var d0=14+Math.random()*30;
-      var d1=d0+120+Math.random()*200;  // moltíssim més llargues
-      var sq=0.82;
-      var x0=cxv+Math.cos(ang)*d0;
-      var y0=cyv+Math.sin(ang)*d0*sq;
-      var x1=cxv+Math.cos(ang)*d1;
-      var y1=cyv+Math.sin(ang)*d1*sq;
-      ctx.strokeStyle=sl%3===0?"rgba(255,255,240,0.85)":(sl%3===1?"rgba(255,180,40,0.70)":"rgba(120,200,255,0.55)");
-      ctx.lineWidth=sl%4===0?3.4:1.8;
+    var vpx=LW/2, vpy=HOR; // punt de fuga del camí
+    var N=40;
+    var phase=G.frame*0.018; // avenç suau de les línies
+    ctx.save();
+    for(var sl=0;sl<N;sl++){
+      var baseAng=(sl/N)*Math.PI*2;
+      var ang=baseAng;
+      var cosA=Math.cos(ang), sinA=Math.sin(ang);
+      // d0/d1 avancen amb phase creant sensació de moviment cap a tu
+      var seg=LW*0.85;
+      var d0=20+((phase*seg*0.6+sl*(seg/N))%seg);
+      var d1=d0+60+Math.random()*50;
+      var x0=vpx+cosA*d0, y0=vpy+sinA*d0;
+      var x1=vpx+cosA*d1, y1=vpy+sinA*d1;
+      var bright=sl%3===0?"rgba(255,255,200,0.80)":(sl%3===1?"rgba(255,150,30,0.65)":"rgba(140,220,255,0.55)");
+      ctx.strokeStyle=bright;
+      ctx.lineWidth=sl%5===0?3.0:1.4;
       ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
     }
-    // flama/glow taronja darrere la moto
-    var fl=ctx.createRadialGradient(cxv,cyv,2,cxv,cyv,70);
-    fl.addColorStop(0,"rgba(255,240,180,0.55)");
-    fl.addColorStop(0.4,"rgba(255,140,30,0.30)");
-    fl.addColorStop(1,"rgba(255,80,0,0)");
-    ctx.fillStyle=fl;ctx.beginPath();ctx.arc(cxv,cyv,70,0,Math.PI*2);ctx.fill();
-    // tremolor + vinyeta forta (túnel de velocitat)
-    var vg=ctx.createRadialGradient(cxv,cyv,LH*0.14,cxv,cyv,LW*0.60);
+    ctx.restore();
+    // glow taronja al centre (VP)
+    var fl=ctx.createRadialGradient(vpx,vpy,0,vpx,vpy,90);
+    fl.addColorStop(0,"rgba(255,200,80,0.45)");
+    fl.addColorStop(0.5,"rgba(255,100,20,0.18)");
+    fl.addColorStop(1,"rgba(255,60,0,0)");
+    ctx.fillStyle=fl;ctx.beginPath();ctx.arc(vpx,vpy,90,0,Math.PI*2);ctx.fill();
+    // vinyeta fosca als quatre cantons (efecte túnel)
+    var vg=ctx.createRadialGradient(vpx,LH*0.5,LH*0.05,vpx,LH*0.5,LW*0.72);
     vg.addColorStop(0,"rgba(0,0,0,0)");
-    vg.addColorStop(0.55,"rgba(40,20,70,0.18)");
-    vg.addColorStop(1,"rgba(30,10,60,0.62)");
+    vg.addColorStop(0.6,"rgba(20,10,50,0.15)");
+    vg.addColorStop(1,"rgba(10,0,40,0.70)");
     ctx.fillStyle=vg;ctx.fillRect(0,0,LW,LH);
-    // pampallugues blaves de velocitat als marges
-    var fx=(G.frame*9)%LW;
-    ctx.fillStyle="rgba(150,210,255,0.20)";
-    ctx.fillRect(0,0,8,LH);ctx.fillRect(LW-8,0,8,LH);
   }
   ctx.restore();
   // flash de dany (vermell) o curació (verd)
