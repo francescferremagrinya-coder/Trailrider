@@ -426,26 +426,6 @@ function drawMoto(cx,groundY,lean,jumpY,wheelieOn){
     ctx.beginPath();ctx.ellipse(cx,groundY,NW*0.40,4,0,0,Math.PI*2);ctx.fill();
   }
   // Inclinació forta → imatge drift
-  var driftThresh=1.30;
-  var totalLean=lean;
-  if(!wheelieOn&&imgDrift.complete&&imgDrift.naturalWidth>0&&Math.abs(totalLean)>driftThresh){
-    // Mantenim l'alçada de la moto normal, deixem l'amplada proporcional (max 2×NW)
-    var _dh=imgDrift.naturalHeight||NH;
-    var _sc=NH/_dh;
-    var dW=Math.min((imgDrift.naturalWidth*_sc)|0, NW*2)|0, dH=NH;
-    ctx.save();
-    if(totalLean>0){
-      // gir dreta → imatge mirallada, centrada a cx
-      ctx.translate(cx,groundY-dH+jumpY);
-      ctx.scale(-1,1);
-      ctx.drawImage(imgDrift,(-dW/2)|0,0,dW,dH);
-    } else {
-      // gir esquerra → imatge normal
-      ctx.drawImage(imgDrift,(cx-dW/2)|0,(groundY-dH+jumpY)|0,dW,dH);
-    }
-    ctx.restore();
-    return;
-  }
   ctx.save();
   // Inclinació lateral lleugera
   if(lean!==0){
@@ -1603,10 +1583,10 @@ function update(){
   G.spd=Math.min(G.maxSpd,G.spd+0.004);
   // NITRO: mentre en queda, dóna velocitat extra i es consumeix
   if(G.nitro>0){
-    G.nitro=Math.max(0,G.nitro-0.22);
+    G.nitro=Math.max(0,G.nitro-0.28);
     G.nitroActive=true;
-    G.spd=Math.min(G.maxSpd*1.7,G.spd+0.14);
-    G.shake=Math.max(G.shake,2.2); // tremolor constant durant el turbo
+    G.spd=Math.min(G.maxSpd*2.8,G.spd+0.30); // velocitat molt més exagerada
+    G.shake=Math.max(G.shake,1.5);
   } else {
     G.nitroActive=false;
   }
@@ -1644,9 +1624,15 @@ function update(){
   tickParticles();
   tickCombo();
 
-  // pols contínua de la roda
-  if(!G.jumping&&G.frame%2===0)addDust(G.bikeX,LH-14,false);
-  // flames del tub quan hi ha turbo
+  // pols contínua de la roda — molt més durant el turbo
+  if(!G.jumping){
+    addDust(G.bikeX,LH-14,false);
+    if(G.nitroActive){
+      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-12,true);
+      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-12,true);
+      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-14,true);
+    }
+  }
   if(G.nitroActive){
     addFlame(G.bikeX-NW*0.18,LH-12);
     addFlame(G.bikeX+NW*0.18,LH-12);
@@ -1691,57 +1677,6 @@ function render(){
   // moto
   var groundY=LH-8;
   drawMoto(G.bikeX,groundY,G.lean+(G.curveLean||0),G.jumpY,G.wheelie>0.5);
-  // ── TÚNEL GALÀCTIC / FORAT NEGRE ──────────────────────────────────────
-  if(G.nitroActive){
-    var vpx=LW/2, vpy=HOR;
-    ctx.save();
-
-    // 1. Anells concèntrics que s'expandeixen des del VP → sensació de túnel
-    var RING_COLS=["rgba(80,0,255,","rgba(0,180,255,","rgba(200,0,255,","rgba(0,255,180,","rgba(255,60,200,"];
-    for(var rr=0;rr<10;rr++){
-      var rad=((G.frame*5+rr*26)%260)+4;
-      var ral=Math.max(0,1-rad/260);
-      ctx.strokeStyle=RING_COLS[rr%RING_COLS.length]+(0.25+ral*0.65).toFixed(2)+")";
-      ctx.lineWidth=rr%3===0?2.5:1.2;
-      ctx.beginPath();ctx.arc(vpx,vpy,rad,0,Math.PI*2);ctx.stroke();
-    }
-
-    // 2. Estels fugaços: angles FIXOS, avanços cap a fora (com els objectes del camí)
-    var STRK_COLS=["rgba(60,20,255,","rgba(0,200,255,","rgba(180,0,255,","rgba(255,255,200,","rgba(0,255,200,"];
-    var NST=48, SEG=280;
-    for(var sl=0;sl<NST;sl++){
-      var ang=(sl/NST)*Math.PI*2; // angle fix, no gira
-      var d0=((G.frame*8+sl*(SEG/NST))%SEG)+6;
-      var d1=d0+55+((sl*13)%35);
-      var sal=Math.min(1,d0/SEG*1.5);
-      ctx.strokeStyle=STRK_COLS[sl%STRK_COLS.length]+(0.40+sal*0.60).toFixed(2)+")";
-      ctx.lineWidth=sl%6===0?3.2:1.4;
-      ctx.beginPath();
-      ctx.moveTo(vpx+Math.cos(ang)*d0, vpy+Math.sin(ang)*d0);
-      ctx.lineTo(vpx+Math.cos(ang)*d1, vpy+Math.sin(ang)*d1);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-
-    // 3. Forat negre: vinyeta molt fosca als cantons, centre transparent
-    var bh=ctx.createRadialGradient(vpx,vpy,10,vpx,vpy,LW*0.75);
-    bh.addColorStop(0,"rgba(30,0,80,0.10)");
-    bh.addColorStop(0.35,"rgba(10,0,50,0.45)");
-    bh.addColorStop(1,"rgba(0,0,10,0.92)");
-    ctx.fillStyle=bh;ctx.fillRect(0,0,LW,LH);
-
-    // 4. Glow violeta/blanc al centre (singularitat del forat negre)
-    var sg=ctx.createRadialGradient(vpx,vpy,0,vpx,vpy,50);
-    sg.addColorStop(0,"rgba(240,220,255,0.95)");
-    sg.addColorStop(0.3,"rgba(150,80,255,0.60)");
-    sg.addColorStop(0.7,"rgba(60,0,180,0.25)");
-    sg.addColorStop(1,"rgba(0,0,60,0)");
-    ctx.fillStyle=sg;ctx.beginPath();ctx.arc(vpx,vpy,50,0,Math.PI*2);ctx.fill();
-
-    // 5. Tint galàctic sobre tota la pantalla (blau-violeta suau)
-    ctx.fillStyle="rgba(20,0,60,0.18)";ctx.fillRect(0,0,LW,LH);
-  }
   ctx.restore();
   // flash de dany (vermell) o curació (verd)
   if(G.flash>0){ctx.fillStyle="rgba(255,40,20,"+(G.flash/12*0.4).toFixed(2)+")";ctx.fillRect(0,0,LW,LH);}
