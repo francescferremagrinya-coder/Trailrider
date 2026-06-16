@@ -676,37 +676,32 @@ function drawRoad(){
   var CAM=M7_CAM_H,ROAD=M7_ROAD,SHLDR=M7_SHLDR,FH=M7_FH;
   for(var irow=0;irow<gH;irow++){
     var d=CAM*gH/(irow+1);
-    // Mode 7: coordenades món — la rotació de heading fa girar TOT el terra
+    // Mode 7: coordenades món (herba rota amb heading)
     var wx=sinH*d-cosH*(LW/2)*d/FH;
     var wz=camZ+cosH*d+sinH*(LW/2)*d/FH;
     var dsx=cosH*d/FH,dsz=-sinH*d/FH;
-    // Camí en espai-món: corba quadràticament amb la distància
-    // -> el camí rota AMB el terra quan heading canvia (veritable Mode 7)
-    var dz=d;  // distància aproximada cap endavant
-    var roadCenterW=curve*dz*dz*0.00014; // camí corba en espai-món
+    // Centre del camí per scanline: a prop=centrat, lluny=desplaçat per corba
+    var cf=(gH-irow-1)/gH; cf=cf*cf;
+    var roadCX=LW/2+curve*cf*120;  // màx 120px/unitat de corba a l'horitzó
     var halfR=ROAD*FH/d;
     var halfRS=(ROAD+SHLDR)*FH/d;
     var pi=irow*LW*4;
     for(var px=0;px<LW;px++){
-      // distància del píxel al centre del camí en espai-món
-      var wXrel=wx-roadCenterW;
-      var aDist=wXrel<0?-wXrel:wXrel;
-      // convertir a píxels per comparar amb halfR
-      var aDistPx=aDist*FH/d;
+      var dist=px-roadCX; var aDist=dist<0?-dist:dist;
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
-      if(aDistPx<halfR){
+      if(aDist<halfR){
         // camí de terra batuda
         rr=zb?172:156;gg=zb?126:112;bb=zb?78:66;
-        var tb=((wz*0.5)|0)&1,tx=((aDist*0.4)|0)&1;
-        if(tb^tx){rr=(rr*0.92)|0;gg=(gg*0.92)|0;bb=(bb*0.92)|0;}
-      } else if(aDistPx<halfRS){
+        var tb=((wz*0.5)|0)&1,tx=((wz*0.15+aDist*0.2)|0)&1;
+        if(tb^tx){rr=(rr*0.90)|0;gg=(gg*0.90)|0;bb=(bb*0.90)|0;}
+      } else if(aDist<halfRS){
         rr=148;gg=96;bb=46;
       } else {
-        // herba: quadrícula GRAN per veure clarament la rotació del terra
+        // herba: quadrícula gran → rotació de heading molt visible
         var xb=((wx*0.055)|0)&1,zb2=((wz*0.038)|0)&1;
         var pat=(xb^zb2);
-        rr=pat?68:38;gg=pat?108:62;bb=pat?40:22;  // més contrast
+        rr=pat?68:38;gg=pat?108:62;bb=pat?40:22;
       }
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
       rr=(rr*(1-fog)+190*fog)|0;
@@ -785,7 +780,7 @@ function drawTrees(){
     var sy=HOR+(1-t)*(LH-HOR);
     var camSpZt=M7_CAM_H/(1-t+0.003);
     var roadPxW=M7_ROAD*2*M7_FH/camSpZt;
-    var dObs=M7_CAM_H/(1-t+0.003); var roadCWobs=curve*dObs*dObs*0.00014; var cx=LW/2+roadCWobs*M7_FH/dObs;
+    var cx=LW/2+curve*t*t*120;
     var treeX=cx+tr.side*(roadPxW/2+roadPxW*tr.off);
     var spr=(tr.sz%2===0)?imgTree2:imgTree1;
     if(!spr)continue;
@@ -1210,7 +1205,7 @@ function obsScreen(o){
   var sy=HOR+(1-t)*(LH-HOR);
   var camSpZ=M7_CAM_H/(1-t+0.003);
   var w=M7_ROAD*2*M7_FH/camSpZ;
-  var dObs=M7_CAM_H/(1-t+0.003); var roadCWobs=curve*dObs*dObs*0.00014; var cx=LW/2+roadCWobs*M7_FH/dObs;
+  var cx=LW/2+curve*t*t*120;
   var ox=cx+o.lane*(w*0.5);
   var sc=(1-t);                     // 0 lluny, 1 prop
   return {x:ox,y:sy,scale:sc,roadW:w};
@@ -1638,7 +1633,13 @@ function update(){
   // curve negatiu = corba esquerra, positiu = dreta
   G.curveLean=(G.curveLean||0);
   G.curveLean+=((curve*0.8)-G.curveLean)*0.06;
-  G.bikeTarget=Math.max(NW*0.5,Math.min(LW-NW*0.5,G.bikeTarget));
+  // Límit del camí: el motorista no pot sortir del camí
+  // A prop del jugador (cf≈0), centre = LW/2; amplada = ROAD*FH/CAM
+  var roadHalfPxNear=M7_ROAD*M7_FH/M7_CAM_H; // ≈217px
+  var roadCXNear=LW/2; // centre a prop sempre centrat
+  var bikeMinX=roadCXNear-roadHalfPxNear+NW*0.6;
+  var bikeMaxX=roadCXNear+roadHalfPxNear-NW*0.6;
+  G.bikeTarget=Math.max(bikeMinX,Math.min(bikeMaxX,G.bikeTarget));
   G.bikeX+=(G.bikeTarget-G.bikeX)*0.2;
 
   updateCurve(G.spd);
