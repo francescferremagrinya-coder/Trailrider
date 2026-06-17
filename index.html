@@ -250,8 +250,11 @@ function startGame(){
 
 function drawMenu(){
   mFrame++;
-  if(portImg.complete&&portImg.naturalWidth>0)ctx.drawImage(portImg,0,0,LW,LH);
-  else px(0,0,LW,LH,"#1a0e08");
+  if(portImg.complete&&portImg.naturalWidth>0){
+    var off=16; // desplaçar avall perquè el casc no quedi enganxat a dalt
+    ctx.drawImage(portImg,0,0,LW,1,0,0,LW,off+1); // estendre el cel cap amunt
+    ctx.drawImage(portImg,0,off,LW,LH);           // imatge completa desplaçada avall
+  } else px(0,0,LW,LH,"#1a0e08");
   var BW=158,BH=18,BX=LW/2-BW/2;
   for(var i=0;i<BTNS.length;i++){
     var by=bY(i),sel=(i===mSel),go=(BTNS[i].a==="go");
@@ -627,14 +630,23 @@ var heading=0;     // angle de càmera Mode 7 (radians)
 var M7_CAM_H=15,M7_ROAD=17,M7_SHLDR=4.5,M7_FH=192;
 var _m7img=null;
 
+// PRNG deterministes: tres fluxos independents perquè cada generador (corba/arbres/obstacles)
+// doni SEMPRE el mateix resultat a cada distància, sigui quina sigui la velocitat
+function mkRng(seed){ var s=seed>>>0; return function(){ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+var rndCurve=mkRng(987654321), rndTree=mkRng(123456789), rndObs=mkRng(555555555);
+var nextCurveDist=300,nextTreeDist=60,nextObsDist=260;
+function resetLevelRNG(){
+  rndCurve=mkRng(987654321); rndTree=mkRng(123456789); rndObs=mkRng(555555555);
+  nextCurveDist=300; nextTreeDist=60; nextObsDist=260;
+}
+
 function updateCurve(spd){
-  curveTimer--;
-  if(curveTimer<=0){
-    var r=Math.random();
+  if(roadDist>=nextCurveDist){
+    var r=rndCurve();
     if(r<0.40)curveTarget=0;
-    else if(r<0.65)curveTarget=-(1.2+Math.random()*0.8);
-    else curveTarget=1.2+Math.random()*0.8;
-    curveTimer=90+Math.random()*100;
+    else if(r<0.65)curveTarget=-(1.2+rndCurve()*0.8);
+    else curveTarget=1.2+rndCurve()*0.8;
+    nextCurveDist=roadDist+(420+rndCurve()*520);
   }
   curve+=(curveTarget-curve)*0.035;
   // heading = rotació del món (Mode 7): s'acumula amb la corba
@@ -743,15 +755,16 @@ function makePine(h){
 var PINES=[makePine(22),makePine(34),makePine(46)];
 var trees=[];
 function spawnTree(){
-  var side=Math.random()<0.5?-1:1;
-  trees.push({d:1.0,side:side,sz:Math.floor(Math.random()*3),off:0.62+Math.random()*0.5});
+  var side=rndTree()<0.5?-1:1;
+  trees.push({d:1.0,side:side,sz:Math.floor(rndTree()*3),off:0.62+rndTree()*0.5});
 }
 function updateTrees(spd){
   for(var i=trees.length-1;i>=0;i--){
     trees[i].d-=spd*0.0016;
     if(trees[i].d<=0.02)trees.splice(i,1);
   }
-  if(Math.random()<0.10)spawnTree();
+  // arbres per distància → sempre al mateix lloc
+  while(roadDist>=nextTreeDist){ spawnTree(); nextTreeDist+=70+rndTree()*110; }
 }
 function drawTrees(){
   var sorted=trees.slice().sort(function(a,b){return b.d-a.d;});
@@ -1163,7 +1176,7 @@ imgBump2=buildFromData(BUMP,BUMP_COLS,BUMP_ROWS);
 
 function spawnObs(){
   // tipus: cow (mata), water (resta vida), bump (salta amb wheelie), bush (resta vida)
-  var roll=Math.random();
+  var roll=rndObs();
   var type;
   if(roll<0.11)type="cow";        // vaques (11%)
   else if(roll<0.34)type="water"; // tolls que curen (23%)
@@ -1173,11 +1186,11 @@ function spawnObs(){
   // posició lateral: la vaca sempre clarament a un costat (fàcil esquivar)
   var lane;
   if(type==="bump")lane=0;
-  else if(type==="cow")lane=(Math.random()<0.5?-0.55:0.55); // costat clar
-  else lane=(Math.random()*1.3-0.65); // water/bush/nitro
+  else if(type==="cow")lane=(rndObs()<0.5?-0.55:0.55); // costat clar
+  else lane=(rndObs()*1.3-0.65); // water/bush/nitro
   // velocitat lateral: les vaques caminen lentament d'un costat a l'altre
   var vlane=0;
-  if(type==="cow")vlane=(Math.random()<0.5?-1:1)*(0.002+Math.random()*0.002);
+  if(type==="cow")vlane=(rndObs()<0.5?-1:1)*(0.002+rndObs()*0.002);
   obs.push({type:type,d:1.0,lane:lane,vlane:vlane,hit:false,passed:false});
 }
 
@@ -1325,10 +1338,8 @@ function drawCombo(){
 
 // ── UPDATE OBSTACLES + COL·LISIONS ───────────────────
 function updateObs(spd){
-  obsTimer++;
-  // freqüència: com més ràpid, una mica més sovint, però sense atapeir
-  var rate=Math.max(68,118-spd*5);
-  if(obsTimer>rate){obsTimer=0;spawnObs();}
+  // obstacles per distància → SEMPRE al mateix lloc del recorregut
+  while(roadDist>=nextObsDist){ spawnObs(); nextObsDist+=210+rndObs()*120; }
 
   // velocitat d'apropament — clarament cap a la moto
   var approach=0.0042+spd*0.0009;
@@ -1559,6 +1570,7 @@ var G={};
 function initGame(){
   obs=[];splashes=[];dustP=[];trees=[];comboTexts=[];flames=[];obsTimer=0;
   roadDist=0;curve=0;curveTarget=0;curveTimer=0;heading=0;
+  resetLevelRNG(); // mateix recorregut i objectes cada partida
   mState="game";
   document.getElementById("ui").classList.add("show");
   G={
@@ -1583,10 +1595,10 @@ function update(){
   G.spd=Math.min(G.maxSpd,G.spd+0.004);
   // NITRO: mentre en queda, dóna velocitat extra i es consumeix
   if(G.nitro>0){
-    G.nitro=Math.max(0,G.nitro-0.28);
+    G.nitro=Math.max(0,G.nitro-0.30);
     G.nitroActive=true;
-    G.spd=Math.min(G.maxSpd*2.8,G.spd+0.30); // velocitat molt més exagerada
-    G.shake=Math.max(G.shake,1.5);
+    G.spd=Math.min(G.maxSpd*3.8,G.spd+0.55); // velocitat molt exagerada
+    G.shake=Math.max(G.shake,2.4);
   } else {
     G.nitroActive=false;
   }
@@ -1628,9 +1640,7 @@ function update(){
   if(!G.jumping){
     addDust(G.bikeX,LH-14,false);
     if(G.nitroActive){
-      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-12,true);
-      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-12,true);
-      addDust(G.bikeX-(Math.random()-0.5)*NW*0.8,LH-14,true);
+      for(var _du=0;_du<6;_du++)addDust(G.bikeX+(Math.random()-0.5)*NW*1.0,LH-12-Math.random()*4,true);
     }
   }
   if(G.nitroActive){
@@ -1682,6 +1692,20 @@ function render(){
   if(G.flash>0){ctx.fillStyle="rgba(255,40,20,"+(G.flash/12*0.4).toFixed(2)+")";ctx.fillRect(0,0,LW,LH);}
   if(G.healFlash>0){ctx.fillStyle="rgba(40,220,90,"+(G.healFlash/14*0.35).toFixed(2)+")";ctx.fillRect(0,0,LW,LH);}
   drawHUD();
+  // text TURBO! mentre dura el nitro (parpelleja)
+  if(G.nitroActive){
+    var ts=1+Math.sin(G.frame*0.4)*0.10;
+    ctx.save();
+    ctx.translate(LW/2,LH*0.30);
+    ctx.scale(ts,ts);
+    ctx.textAlign="center";ctx.textBaseline="middle";
+    ctx.font="bold 30px Arial Black, sans-serif";
+    ctx.lineWidth=5;ctx.strokeStyle="rgba(0,0,0,0.85)";
+    ctx.strokeText("TURBO!",0,0);
+    ctx.fillStyle=(G.frame%6<3)?"#ffe000":"#ff7000";
+    ctx.fillText("TURBO!",0,0);
+    ctx.restore();
+  }
   if(G.dead)drawDead();
   if(G.won)drawWin();
 }
