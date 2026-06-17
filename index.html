@@ -90,7 +90,7 @@ document.addEventListener("keydown",function(e){
   if(e.key==="ArrowRight")IN.right=true;
   if(e.key==="w"||e.key==="W"||e.key===" ")IN.wheelie=true;
   if(["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","w","W"].indexOf(e.key)>=0)e.preventDefault();
-  if(mState==="menu"&&(e.key===" "||e.key==="Enter"))startGame();
+  if(mState==="menu"&&(e.key===" "||e.key==="Enter")){var _b=BTNS[mSel];startGame(_b&&_b.a==="go"?_b.theme:"terra");}
 });
 document.addEventListener("keyup",function(e){
   if(e.key==="ArrowLeft")IN.left=false;
@@ -214,7 +214,7 @@ function updateTiltBtn(){
 
 // ── MENU ─────────────────────────────────────────────
 var mState="menu",mFrame=0,mSel=0;
-var BTNS=[{t:"START",a:"go"},{t:"OPTIONS",a:"o"},{t:"EXIT",a:"x"}];
+var BTNS=[{t:"CAMÍ DE TERRA",a:"go",theme:"terra"},{t:"PORT DE MUNTANYA",a:"go",theme:"muntanya"},{t:"OPTIONS",a:"o"}];
 function bY(i){return 140+i*23;}
 
 function tapMenu(clientX,clientY){
@@ -223,7 +223,7 @@ function tapMenu(clientX,clientY){
   for(var i=0;i<BTNS.length;i++){
     if(cy>bY(i)-2&&cy<bY(i)+20){
       mSel=i;
-      if(BTNS[i].a==="go")startGame();
+      if(BTNS[i].a==="go")startGame(BTNS[i].theme);
       return;
     }
   }
@@ -240,8 +240,9 @@ CV.addEventListener("touchend",function(e){
   }
 },{passive:true});
 
-function startGame(){
+function startGame(theme){
   unlockAudio();
+  if(theme)curTheme=theme;
   mState="game";
   document.getElementById("ui").classList.add("show");
   var tb=document.getElementById("tiltBtn");if(tb)tb.style.display="none";
@@ -658,6 +659,9 @@ function updateCurve(spd){
 }
 
 // ── CAMÍ MODE 7 (perspectiva rotatòria tipus SNES) ───────────────────
+// curTheme: "terra" = camí de terra (Pirineu, bosc) | "muntanya" = carretera asfaltada (port)
+var curTheme="terra";
+function destName(){return curTheme==="muntanya"?"PORT DE LA BONAIGUA":"VILA DE MONTBLANC";}
 var _m7ok=true; // fallback si el dispositiu no suporta putImageData
 function drawRoad(){
   if(!_m7ok){drawRoadFallback();return;}
@@ -683,24 +687,37 @@ function drawRoad(){
       var dist=px-roadCX; var aDist=dist<0?-dist:dist;
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
-      if(aDist<halfR){
-        var base=zb?50:42;
-        rr=base;gg=base;bb=base+6;
-        // linea central blanca (discontinua)
-        if(Math.abs(dist)<halfR*0.045&&((wz*0.07)|0)%3!==0){rr=220;gg=220;bb=220;}
-        // vorada blanca
-        else if(aDist>halfR*0.87&&aDist<halfR){rr=185;gg=185;bb=185;}
-        // textura asfalt molt subtil
-        else{var ta=((wz*0.8)|0)&1,tx2=((wz*0.3+px*0.1)|0)&1;if(ta&&tx2){rr=(rr+6)|0;gg=(gg+6)|0;bb=(bb+8)|0;}}
-      } else if(aDist<halfRS){
-        var st=((wz*0.15)|0)%2;
-        rr=100+st*(-8);gg=95+st*(-8);bb=88+st*(-8);
+      if(curTheme==="muntanya"){
+        // ── CARRETERA ASFALTADA (port de muntanya) ──
+        if(aDist<halfR){
+          var base=zb?50:42;
+          rr=base;gg=base;bb=base+6;
+          if(Math.abs(dist)<halfR*0.045&&((wz*0.07)|0)%3!==0){rr=220;gg=220;bb=220;}
+          else if(aDist>halfR*0.87&&aDist<halfR){rr=185;gg=185;bb=185;}
+          else{var ta=((wz*0.8)|0)&1,tx2=((wz*0.3+px*0.1)|0)&1;if(ta&&tx2){rr=(rr+6)|0;gg=(gg+6)|0;bb=(bb+8)|0;}}
+        } else if(aDist<halfRS){
+          var st=((wz*0.15)|0)%2;
+          rr=100+st*(-8);gg=95+st*(-8);bb=88+st*(-8);
+        } else {
+          var xb=((wx*0.055)|0)&1,zb2=((wz*0.038)|0)&1;
+          var pat=(xb^zb2);
+          rr=pat?50:32;gg=pat?72:50;bb=pat?35:22;
+          var rocky=((wx*0.12+wz*0.09)|0)%5===0;
+          if(rocky){rr=75;gg=70;bb=62;}
+        }
       } else {
-        var xb=((wx*0.055)|0)&1,zb2=((wz*0.038)|0)&1;
-        var pat=(xb^zb2);
-        rr=pat?50:32;gg=pat?72:50;bb=pat?35:22;
-        var rocky=((wx*0.12+wz*0.09)|0)%5===0;
-        if(rocky){rr=75;gg=70;bb=62;}
+        // ── CAMÍ DE TERRA (Pirineu, bosc) ──
+        if(aDist<halfR){
+          rr=zb?172:156;gg=zb?126:112;bb=zb?78:66;
+          var tb=((wz*0.5)|0)&1,txd=((wz*0.15+aDist*0.2)|0)&1;
+          if(tb^txd){rr=(rr*0.90)|0;gg=(gg*0.90)|0;bb=(bb*0.90)|0;}
+        } else if(aDist<halfRS){
+          rr=148;gg=96;bb=46;
+        } else {
+          var xbd=((wx*0.055)|0)&1,zbd=((wz*0.038)|0)&1;
+          var patd=(xbd^zbd);
+          rr=patd?68:38;gg=patd?108:62;bb=patd?40:22;
+        }
       }
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
       rr=(rr*(1-fog)+190*fog)|0;
@@ -1329,21 +1346,33 @@ imgBump2=buildFromData(BUMP,BUMP_COLS,BUMP_ROWS);
 
 
 function spawnObs(){
-  // tipus: cotxe (mata), cabirol (cura), bado (salta), ciclista (resta vida), nitro
   var roll=rndObs();
   var type;
-  if(roll<0.11)type="cotxe";      // cotxe (11%) - mort
-  else if(roll<0.34)type="cabirol"; // cabirol (23%) - cura
-  else if(roll<0.58)type="bado";  // badó (24%) - salta
-  else if(roll<0.82)type="ciclista"; // ciclista (24%) - perd vida
-  else type="nitro";               // nitro (18%)
+  // Cada tema té el seu conjunt d'obstacles (mateixes mecàniques):
+  //   mort | cura | salta | perd vida | nitro
+  if(curTheme==="muntanya"){
+    if(roll<0.11)type="cotxe";        // mort
+    else if(roll<0.34)type="cabirol"; // cura
+    else if(roll<0.58)type="bado";    // salta
+    else if(roll<0.82)type="ciclista";// perd vida
+    else type="nitro";
+  } else {
+    if(roll<0.11)type="cow";          // mort
+    else if(roll<0.34)type="water";   // cura
+    else if(roll<0.58)type="bump";    // salta
+    else if(roll<0.82)type="bush";    // perd vida
+    else type="nitro";
+  }
   var lane;
-  if(type==="bado")lane=0;
-  else if(type==="cotxe")lane=(rndObs()<0.5?-0.45:0.45); // cotxe al seu carril
+  var isFlat=(type==="bado"||type==="bump");          // ocupa tot l'ample
+  var isVehicle=(type==="cotxe"||type==="cow");        // al seu carril
+  if(isFlat)lane=0;
+  else if(isVehicle)lane=(rndObs()<0.5?-0.45:0.45);
   else lane=(rndObs()*1.1-0.55);
   var vlane=0;
-  if(type==="cotxe")vlane=(rndObs()<0.5?-1:1)*(0.0015+rndObs()*0.0015); // cotxe zigzagueja poc
-  if(type==="ciclista")vlane=(rndObs()<0.5?-1:1)*(0.001+rndObs()*0.001); // ciclista al seu carril
+  if(type==="cotxe")vlane=(rndObs()<0.5?-1:1)*(0.0015+rndObs()*0.0015);
+  else if(type==="cow")vlane=(rndObs()<0.5?-1:1)*(0.002+rndObs()*0.002);
+  else if(type==="ciclista")vlane=(rndObs()<0.5?-1:1)*(0.001+rndObs()*0.001);
   obs.push({type:type,d:1.0,lane:lane,vlane:vlane,hit:false,passed:false});
 }
 
@@ -1650,7 +1679,7 @@ function drawWin(){
   ctx.fillStyle="#ffe04a";ctx.font="bold 14px monospace";
   ctx.fillText("HAS ARRIBAT!",LW/2,LH*0.24);
   ctx.fillStyle="#fff";ctx.font="bold 9px monospace";
-  ctx.fillText("VILA DE MONTBLANC",LW/2,LH*0.38);
+  ctx.fillText(destName(),LW/2,LH*0.38);
   ctx.fillStyle="#9affb0";ctx.font="8px monospace";
   ctx.fillText((G.dist/100).toFixed(1)+" km   "+G.score+" pts",LW/2,LH*0.50);
   for(var i=0;i<END_BTNS.length;i++)drawEndButton(END_BTNS[i]);
@@ -1728,7 +1757,7 @@ function drawVillage(){
     ctx.fillStyle="rgba(0,0,0,0.7)";rr(LW/2-58,HOR-16,116,14,4);ctx.fill();
     ctx.strokeStyle="#d4aa50";ctx.lineWidth=1.2;rr(LW/2-58,HOR-16,116,14,4);ctx.stroke();
     ctx.fillStyle="#ffe090";ctx.font="bold 8px monospace";ctx.textAlign="center";
-    ctx.fillText("VILA DE MONTBLANC",LW/2,HOR-6);
+    ctx.fillText(destName(),LW/2,HOR-6);
     ctx.restore();
   }
 }
