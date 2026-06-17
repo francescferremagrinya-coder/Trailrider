@@ -684,17 +684,23 @@ function drawRoad(){
       var zb=((wz*0.2)|0)&1;
       var rr,gg,bb;
       if(aDist<halfR){
-        // camí de terra batuda
-        rr=zb?172:156;gg=zb?126:112;bb=zb?78:66;
-        var tb=((wz*0.5)|0)&1,tx=((wz*0.15+aDist*0.2)|0)&1;
-        if(tb^tx){rr=(rr*0.90)|0;gg=(gg*0.90)|0;bb=(bb*0.90)|0;}
+        var base=zb?50:42;
+        rr=base;gg=base;bb=base+6;
+        // linea central blanca (discontinua)
+        if(Math.abs(dist)<halfR*0.045&&((wz*0.07)|0)%3!==0){rr=220;gg=220;bb=220;}
+        // vorada blanca
+        else if(aDist>halfR*0.87&&aDist<halfR){rr=185;gg=185;bb=185;}
+        // textura asfalt molt subtil
+        else{var ta=((wz*0.8)|0)&1,tx2=((wz*0.3+px*0.1)|0)&1;if(ta&&tx2){rr=(rr+6)|0;gg=(gg+6)|0;bb=(bb+8)|0;}}
       } else if(aDist<halfRS){
-        rr=148;gg=96;bb=46;
+        var st=((wz*0.15)|0)%2;
+        rr=100+st*(-8);gg=95+st*(-8);bb=88+st*(-8);
       } else {
-        // herba: quadrícula gran → rotació de heading molt visible
         var xb=((wx*0.055)|0)&1,zb2=((wz*0.038)|0)&1;
         var pat=(xb^zb2);
-        rr=pat?68:38;gg=pat?108:62;bb=pat?40:22;
+        rr=pat?50:32;gg=pat?72:50;bb=pat?35:22;
+        var rocky=((wx*0.12+wz*0.09)|0)%5===0;
+        if(rocky){rr=75;gg=70;bb=62;}
       }
       var fog=(1-(irow+1)/gH);fog=fog*fog*0.72;
       rr=(rr*(1-fog)+190*fog)|0;
@@ -1149,7 +1155,155 @@ function makeBush(){
   }
   return oc;
 }
+function makeCotxe(){
+  // Car seen head-on (coming toward you). ~44x32px
+  var W=44,H=32,oc=document.createElement("canvas");oc.width=W;oc.height=H;
+  var c=oc.getContext("2d");
+  // body (red)
+  c.fillStyle="#c82020";c.fillRect(4,8,36,18);
+  // roof
+  c.fillStyle="#a01818";c.fillRect(10,2,24,8);
+  // windshield
+  c.fillStyle="#88aacc";c.fillRect(11,3,22,6);
+  c.fillStyle="rgba(255,255,255,0.4)";c.fillRect(12,4,5,4);
+  // headlights (round, yellow-white)
+  c.fillStyle="#ffffaa";c.beginPath();c.arc(10,18,5,0,Math.PI*2);c.fill();
+  c.fillStyle="#ffffdd";c.beginPath();c.arc(34,18,5,0,Math.PI*2);c.fill();
+  c.fillStyle="rgba(255,255,255,0.8)";c.beginPath();c.arc(9,17,2,0,Math.PI*2);c.fill();
+  c.beginPath();c.arc(33,17,2,0,Math.PI*2);c.fill();
+  // grille
+  c.fillStyle="#333";c.fillRect(15,20,14,5);
+  c.fillStyle="#555";for(var gi=0;gi<3;gi++){c.fillRect(16+gi*5,21,3,3);}
+  // bumper
+  c.fillStyle="#aaa";c.fillRect(3,24,38,4);
+  // license plate
+  c.fillStyle="#eef";c.fillRect(17,25,10,3);
+  c.fillStyle="#333";c.font="2px sans-serif";
+  // wheels (black arches at bottom)
+  c.fillStyle="#222";c.beginPath();c.arc(9,30,6,Math.PI,0);c.fill();
+  c.beginPath();c.arc(35,30,6,Math.PI,0);c.fill();
+  c.fillStyle="#555";c.beginPath();c.arc(9,30,3,0,Math.PI*2);c.fill();
+  c.beginPath();c.arc(35,30,3,0,Math.PI*2);c.fill();
+  // door lines
+  c.strokeStyle="rgba(0,0,0,0.3)";c.lineWidth=0.5;
+  c.beginPath();c.moveTo(22,8);c.lineTo(22,26);c.stroke();
+  // shadow under car
+  c.fillStyle="rgba(0,0,0,0.25)";c.fillRect(6,30,32,2);
+  return oc;
+}
+
+function makeCiclista(){
+  // Road cyclist from behind, hunched, ~18x44px
+  var W=18,H=44,oc=document.createElement("canvas");oc.width=W;oc.height=H;
+  var c=oc.getContext("2d");
+  // helmet (white with red stripes)
+  c.fillStyle="#f0f0f0";c.beginPath();c.arc(9,5,6,Math.PI,0);c.fill();
+  c.fillStyle="#dd2020";c.fillRect(4,3,3,3);c.fillRect(8,2,3,3);
+  c.fillStyle="#333";c.fillRect(5,7,8,2); // visor
+  // jersey (red/white pro cycling)
+  c.fillStyle="#cc1818";c.fillRect(4,9,10,9);
+  c.fillStyle="#f0f0f0";c.fillRect(5,10,3,6);c.fillRect(10,10,3,6);
+  // arms stretched forward (aero position)
+  c.fillStyle="#cc1818";
+  c.fillRect(0,10,4,3); // left arm
+  c.fillRect(14,10,4,3); // right arm
+  // handlebars (drop bars)
+  c.fillStyle="#222";c.fillRect(0,12,18,2);
+  c.fillRect(2,10,3,3);c.fillRect(13,10,3,3); // drops
+  // bib shorts (black)
+  c.fillStyle="#111";c.fillRect(4,18,10,8);
+  // legs pedaling
+  c.fillStyle="#f5c8a0"; // skin
+  c.fillRect(4,26,4,7); // left leg down
+  c.fillRect(10,22,4,9); // right leg up
+  c.fillStyle="#111";c.fillRect(4,32,4,4);c.fillRect(10,30,4,4); // shoe
+  // bike frame
+  c.fillStyle="#888";c.fillRect(7,14,4,18);
+  c.fillStyle="#666";c.fillRect(4,26,10,2); // pedal axle
+  // wheels
+  c.strokeStyle="#333";c.lineWidth=2;
+  c.beginPath();c.arc(9,38,5,0,Math.PI*2);c.stroke();
+  c.strokeStyle="#555";c.lineWidth=1;
+  c.beginPath();c.moveTo(9,33);c.lineTo(9,43);c.stroke();
+  c.beginPath();c.moveTo(4,38);c.lineTo(14,38);c.stroke();
+  return oc;
+}
+
+function makeCabirol(){
+  // Roe deer facing camera, on road, ~32x46px
+  var W=32,H=46,oc=document.createElement("canvas");oc.width=W;oc.height=H;
+  var c=oc.getContext("2d");
+  // antlers (simple Y-shape, dark brown)
+  c.strokeStyle="#3a1e08";c.lineWidth=2;
+  c.beginPath();c.moveTo(11,0);c.lineTo(11,8);c.stroke();
+  c.beginPath();c.moveTo(11,4);c.lineTo(7,0);c.stroke();
+  c.beginPath();c.moveTo(11,4);c.lineTo(14,1);c.stroke();
+  c.beginPath();c.moveTo(21,0);c.lineTo(21,8);c.stroke();
+  c.beginPath();c.moveTo(21,4);c.lineTo(18,1);c.stroke();
+  c.beginPath();c.moveTo(21,4);c.lineTo(25,0);c.stroke();
+  // head
+  c.fillStyle="#b87840";c.beginPath();c.ellipse(16,12,7,8,0,0,Math.PI*2);c.fill();
+  // white muzzle
+  c.fillStyle="#e8c88a";c.beginPath();c.ellipse(16,16,4,4,0,0,Math.PI*2);c.fill();
+  // nose
+  c.fillStyle="#442211";c.beginPath();c.ellipse(16,14,2,1.5,0,0,Math.PI*2);c.fill();
+  // eyes (big, dark, alert)
+  c.fillStyle="#110a04";c.beginPath();c.arc(11,10,2.5,0,Math.PI*2);c.fill();
+  c.beginPath();c.arc(21,10,2.5,0,Math.PI*2);c.fill();
+  c.fillStyle="rgba(255,255,255,0.7)";c.beginPath();c.arc(10,9,0.8,0,Math.PI*2);c.fill();
+  c.beginPath();c.arc(20,9,0.8,0,Math.PI*2);c.fill();
+  // ears (pointed, tan with pink inside)
+  c.fillStyle="#b87840";
+  c.beginPath();c.moveTo(6,6);c.lineTo(3,0);c.lineTo(9,5);c.closePath();c.fill();
+  c.beginPath();c.moveTo(26,6);c.lineTo(29,0);c.lineTo(23,5);c.closePath();c.fill();
+  c.fillStyle="#d4a0a0";
+  c.beginPath();c.moveTo(6,6);c.lineTo(4,2);c.lineTo(9,5);c.closePath();c.fill();
+  c.beginPath();c.moveTo(26,6);c.lineTo(28,2);c.lineTo(23,5);c.closePath();c.fill();
+  // neck
+  c.fillStyle="#a06030";c.fillRect(12,19,8,5);
+  // body (reddish-brown)
+  c.fillStyle="#9a5828";c.beginPath();c.ellipse(16,32,11,11,0,0,Math.PI*2);c.fill();
+  // white rump patch (characteristic of roe deer)
+  c.fillStyle="#f0e8d0";c.beginPath();c.ellipse(16,36,6,5,0,0,Math.PI*2);c.fill();
+  // legs (4 thin legs)
+  c.fillStyle="#8a4820";
+  c.fillRect(9,40,3,6);   // front left
+  c.fillRect(20,40,3,6);  // front right
+  c.fillRect(6,38,3,8);   // back left
+  c.fillRect(23,38,3,8);  // back right
+  // hooves (small black)
+  c.fillStyle="#222";
+  c.fillRect(9,44,3,2);c.fillRect(20,44,3,2);
+  c.fillRect(6,44,3,2);c.fillRect(23,44,3,2);
+  return oc;
+}
+
+function makeBado(){
+  // Speed bump (badó): yellow/black stripes, wide and low ~100x14px
+  var W=100,H=14,oc=document.createElement("canvas");oc.width=W;oc.height=H;
+  var c=oc.getContext("2d");
+  // bump shape (slight arch)
+  var g=c.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,"#f0c000");g.addColorStop(0.5,"#d4a800");g.addColorStop(1,"#b08800");
+  c.fillStyle=g;c.beginPath();c.ellipse(50,H+2,49,9,0,0,Math.PI*2);c.fill();
+  // yellow/black stripes
+  var SW=12; // stripe width
+  for(var sx=0;sx<W;sx+=SW){
+    c.fillStyle=((sx/SW)|0)%2===0?"rgba(0,0,0,0.55)":"rgba(255,220,0,0.0)";
+    c.fillRect(sx,0,SW,H);
+  }
+  // top edge highlight
+  c.fillStyle="rgba(255,240,100,0.5)";c.fillRect(0,0,W,2);
+  // warning stripes visible even small
+  c.strokeStyle="#222";c.lineWidth=1;
+  for(var sx2=0;sx2<W;sx2+=SW){
+    c.beginPath();c.moveTo(sx2,0);c.lineTo(sx2,H);c.stroke();
+  }
+  return oc;
+}
+
 var SPR_COW=makeCow(),SPR_BUMP=makeBump(),SPR_BUSH=makeBush();
+var SPR_COTXE=makeCotxe(),SPR_CICLISTA=makeCiclista(),SPR_CABIROL=makeCabirol(),SPR_BADO=makeBado();
 // Sprite RED BULL (llauna platejada/blava)
 function makeNitro(){
   var oc=document.createElement("canvas");oc.width=16;oc.height=28;var c=oc.getContext("2d");
@@ -1175,22 +1329,21 @@ imgBump2=buildFromData(BUMP,BUMP_COLS,BUMP_ROWS);
 
 
 function spawnObs(){
-  // tipus: cow (mata), water (resta vida), bump (salta amb wheelie), bush (resta vida)
+  // tipus: cotxe (mata), cabirol (cura), bado (salta), ciclista (resta vida), nitro
   var roll=rndObs();
   var type;
-  if(roll<0.11)type="cow";        // vaques (11%)
-  else if(roll<0.34)type="water"; // tolls que curen (23%)
-  else if(roll<0.58)type="bump";  // trencaaigües (24%)
-  else if(roll<0.82)type="bush";  // matolls (24%)
-  else type="nitro";             // nitro recollible (18%)
-  // posició lateral: la vaca sempre clarament a un costat (fàcil esquivar)
+  if(roll<0.11)type="cotxe";      // cotxe (11%) - mort
+  else if(roll<0.34)type="cabirol"; // cabirol (23%) - cura
+  else if(roll<0.58)type="bado";  // badó (24%) - salta
+  else if(roll<0.82)type="ciclista"; // ciclista (24%) - perd vida
+  else type="nitro";               // nitro (18%)
   var lane;
-  if(type==="bump")lane=0;
-  else if(type==="cow")lane=(rndObs()<0.5?-0.55:0.55); // costat clar
-  else lane=(rndObs()*1.3-0.65); // water/bush/nitro
-  // velocitat lateral: les vaques caminen lentament d'un costat a l'altre
+  if(type==="bado")lane=0;
+  else if(type==="cotxe")lane=(rndObs()<0.5?-0.45:0.45); // cotxe al seu carril
+  else lane=(rndObs()*1.1-0.55);
   var vlane=0;
-  if(type==="cow")vlane=(rndObs()<0.5?-1:1)*(0.002+rndObs()*0.002);
+  if(type==="cotxe")vlane=(rndObs()<0.5?-1:1)*(0.0015+rndObs()*0.0015); // cotxe zigzagueja poc
+  if(type==="ciclista")vlane=(rndObs()<0.5?-1:1)*(0.001+rndObs()*0.001); // ciclista al seu carril
   obs.push({type:type,d:1.0,lane:lane,vlane:vlane,hit:false,passed:false});
 }
 
@@ -1208,33 +1361,48 @@ function obsScreen(o){
 function drawObs(o){
   var s=obsScreen(o);
   if(s.scale<0.02)return;
-  if(o.type==="cow"){
-    var cw=(SPR_COW.width*(s.scale*1.05+0.10))|0,ch=(SPR_COW.height*(s.scale*1.05+0.10))|0;
+  if(o.type==="cow"||o.type==="cotxe"){
+    var spr=(o.type==="cotxe")?SPR_COTXE:SPR_COW;
+    var cw=(spr.width*(s.scale*1.05+0.10))|0,ch=(spr.height*(s.scale*1.05+0.10))|0;
     if(cw<2)return;
     ctx.fillStyle="rgba(0,0,0,0.22)";ctx.beginPath();ctx.ellipse(s.x,s.y,cw*0.36,ch*0.06,0,0,Math.PI*2);ctx.fill();
-    ctx.drawImage(SPR_COW,(s.x-cw/2)|0,(s.y-ch)|0,cw,ch);
-  } else if(o.type==="water"){
-    var pw=s.roadW*0.42*(0.3+s.scale*0.7),ph=pw*0.42;
-    if(pw<3)return;
-    ctx.fillStyle="rgba(0,0,0,0.18)";ctx.beginPath();ctx.ellipse(s.x+1,s.y+1,pw*0.55,ph*0.55,0,0,Math.PI*2);ctx.fill();
-    var g=ctx.createRadialGradient(s.x-pw*0.15,s.y-ph*0.1,0,s.x,s.y,pw*0.55);
-    g.addColorStop(0,"#9cc0d4");g.addColorStop(0.4,"#6a98ac");g.addColorStop(0.8,"#48708a");g.addColorStop(1,"rgba(40,70,85,0.2)");
-    ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(s.x,s.y,pw*0.55,ph*0.55,0,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle="rgba(220,240,255,0.6)";ctx.beginPath();ctx.ellipse(s.x-pw*0.18,s.y-ph*0.15,pw*0.14,ph*0.10,0,0,Math.PI*2);ctx.fill();
-  } else if(o.type==="bump"){
-    var bw=s.roadW*0.95,bsc=bw/SPR_BUMP.width;
-    var bh=(SPR_BUMP.height*bsc)|0;bw=bw|0;
+    ctx.drawImage(spr,(s.x-cw/2)|0,(s.y-ch)|0,cw,ch);
+  } else if(o.type==="water"||o.type==="cabirol"){
+    if(o.type==="cabirol"){
+      var cw2=(SPR_CABIROL.width*(s.scale*1.2+0.08))|0,ch2=(SPR_CABIROL.height*(s.scale*1.2+0.08))|0;
+      if(cw2<2)return;
+      ctx.fillStyle="rgba(0,0,0,0.18)";ctx.beginPath();ctx.ellipse(s.x,s.y,cw2*0.3,ch2*0.05,0,0,Math.PI*2);ctx.fill();
+      ctx.drawImage(SPR_CABIROL,(s.x-cw2/2)|0,(s.y-ch2)|0,cw2,ch2);
+    } else {
+      var pw=s.roadW*0.42*(0.3+s.scale*0.7),ph=pw*0.42;
+      if(pw<3)return;
+      ctx.fillStyle="rgba(0,0,0,0.18)";ctx.beginPath();ctx.ellipse(s.x+1,s.y+1,pw*0.55,ph*0.55,0,0,Math.PI*2);ctx.fill();
+      var gg=ctx.createRadialGradient(s.x-pw*0.15,s.y-ph*0.1,0,s.x,s.y,pw*0.55);
+      gg.addColorStop(0,"#9cc0d4");gg.addColorStop(0.4,"#6a98ac");gg.addColorStop(0.8,"#48708a");gg.addColorStop(1,"rgba(40,70,85,0.2)");
+      ctx.fillStyle=gg;ctx.beginPath();ctx.ellipse(s.x,s.y,pw*0.55,ph*0.55,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle="rgba(220,240,255,0.6)";ctx.beginPath();ctx.ellipse(s.x-pw*0.18,s.y-ph*0.15,pw*0.14,ph*0.10,0,0,Math.PI*2);ctx.fill();
+    }
+  } else if(o.type==="bump"||o.type==="bado"){
+    var spr2=(o.type==="bado")?SPR_BADO:SPR_BUMP;
+    var bw=s.roadW*0.95,bsc=bw/spr2.width;
+    var bh=(spr2.height*bsc)|0;bw=bw|0;
     if(bw<4)return;
-    ctx.drawImage(SPR_BUMP,(s.x-bw/2)|0,(s.y-bh)|0,bw,bh);
-  } else if(o.type==="bush"){
-    var uw=(SPR_BUSH.width*(s.scale*2.2+0.1))|0,uh=(SPR_BUSH.height*(s.scale*2.2+0.1))|0;
-    if(uw<2)return;
-    ctx.fillStyle="rgba(0,0,0,0.20)";ctx.beginPath();ctx.ellipse(s.x,s.y,uw*0.4,uh*0.14,0,0,Math.PI*2);ctx.fill();
-    ctx.drawImage(SPR_BUSH,(s.x-uw/2)|0,(s.y-uh)|0,uw,uh);
+    ctx.drawImage(spr2,(s.x-bw/2)|0,(s.y-bh)|0,bw,bh);
+  } else if(o.type==="bush"||o.type==="ciclista"){
+    if(o.type==="ciclista"){
+      var cw3=(SPR_CICLISTA.width*(s.scale*1.8+0.08))|0,ch3=(SPR_CICLISTA.height*(s.scale*1.8+0.08))|0;
+      if(cw3<2)return;
+      ctx.fillStyle="rgba(0,0,0,0.15)";ctx.beginPath();ctx.ellipse(s.x,s.y,cw3*0.25,ch3*0.04,0,0,Math.PI*2);ctx.fill();
+      ctx.drawImage(SPR_CICLISTA,(s.x-cw3/2)|0,(s.y-ch3)|0,cw3,ch3);
+    } else {
+      var uw=(SPR_BUSH.width*(s.scale*2.2+0.1))|0,uh=(SPR_BUSH.height*(s.scale*2.2+0.1))|0;
+      if(uw<2)return;
+      ctx.fillStyle="rgba(0,0,0,0.20)";ctx.beginPath();ctx.ellipse(s.x,s.y,uw*0.4,uh*0.14,0,0,Math.PI*2);ctx.fill();
+      ctx.drawImage(SPR_BUSH,(s.x-uw/2)|0,(s.y-uh)|0,uw,uh);
+    }
   } else if(o.type==="nitro"){
     var nw=(SPR_NITRO.width*(s.scale*2.0+0.15))|0,nh=(SPR_NITRO.height*(s.scale*2.0+0.15))|0;
     if(nw<2)return;
-    // halo pulsant
     var pulse=0.4+0.3*Math.sin(G.frame*0.2);
     ctx.fillStyle="rgba(255,220,60,"+pulse.toFixed(2)+")";
     ctx.beginPath();ctx.ellipse(s.x,s.y-nh*0.5,nw*0.8,nh*0.5,0,0,Math.PI*2);ctx.fill();
@@ -1346,8 +1514,8 @@ function updateObs(spd){
 
   for(var i=obs.length-1;i>=0;i--){
     var o=obs[i];
-    // les vaques venen una mica més lentes (més temps per esquivar)
-    var oa=(o.type==="cow")?approach*0.72:approach;
+    // els cotxes/vaques venen una mica més lentes (més temps per esquivar)
+    var oa=(o.type==="cow"||o.type==="cotxe")?approach*0.72:approach;
     o.d-=oa; // s'apropa (d baixa cap a 0)
     // la vaca camina lateralment, rebotant dins el camí
     if(o.vlane){
@@ -1362,7 +1530,7 @@ function updateObs(spd){
       var s=obsScreen(o);
       var dxLane=Math.abs(s.x-G.bikeX);
       // hitbox: bump=tota la carretera, altres=amplada real del bike
-      var widthHit=(o.type==="bump")?9999:NW*0.78;
+      var widthHit=(o.type==="bump"||o.type==="bado")?9999:NW*0.78;
       if(dxLane<widthHit){
         o.hit=true;
         hitObstacle(o);
@@ -1370,7 +1538,7 @@ function updateObs(spd){
     }
     // esquiva: l'obstacle perillós passa sense tocar la moto
     if(o.d<=-0.05){
-      if(!o.hit&&!o.passed&&(o.type==="cow"||o.type==="bush"||o.type==="bump")){
+      if(!o.hit&&!o.passed&&(o.type==="cow"||o.type==="cotxe"||o.type==="bush"||o.type==="ciclista"||o.type==="bump"||o.type==="bado")){
         G.combo++;G.comboTimer=120;
         var pts=10*G.combo;
         G.score+=pts;
@@ -1382,16 +1550,16 @@ function updateObs(spd){
 }
 
 function hitObstacle(o){
-  if(o.type==="cow"){
-    // VACA = mort instantània
-    G.hp=0;G.dead=true;G.deadReason="vaca";G.shake=14;
-  } else if(o.type==="water"){
-    // AIGUA = SUMA vida (màxim 7) + esquitx
+  if(o.type==="cow"||o.type==="cotxe"){
+    // VACA/COTXE = mort instantània
+    G.hp=0;G.dead=true;G.deadReason=(o.type==="cotxe")?"cotxe":"vaca";G.shake=14;
+  } else if(o.type==="water"||o.type==="cabirol"){
+    // AIGUA/CABIROL = SUMA vida (màxim 7) + esquitx
     addSplash(G.bikeX,LH-18);
     if(G.hp<7)G.hp+=1;
     G.healFlash=14;
-  } else if(o.type==="bush"){
-    // MATOLL = resta vida
+  } else if(o.type==="bush"||o.type==="ciclista"){
+    // MATOLL/CICLISTA = resta vida
     G.hp-=1;G.shake=8;G.flash=12;
     if(G.hp<=0){G.dead=true;G.deadReason="vida";}
   } else if(o.type==="nitro"){
@@ -1399,8 +1567,8 @@ function hitObstacle(o){
     G.nitro=Math.min(100,G.nitro+60);
     G.healFlash=8;
     addCombo(G.bikeX,LH-40,"RED BULL!");
-  } else if(o.type==="bump"){
-    // TRENCAAIGUES: si fas wheelie -> SALT; si no -> sotrac
+  } else if(o.type==="bump"||o.type==="bado"){
+    // TRENCAAIGUES/BADO: si fas wheelie -> SALT; si no -> sotrac
     if(G.wheelie>0.5){
       G.jumpV=-7.2;G.jumping=true;addDust(G.bikeX,LH-14,true);
       o.passed=true; // ja comptat, no doblar
@@ -1471,7 +1639,7 @@ function drawDead(){
   px(0,0,LW,LH,"rgba(0,0,0,0.80)");
   ctx.textAlign="center";
   ctx.fillStyle="#ff3322";ctx.font="bold 13px monospace";
-  ctx.fillText(G.deadReason==="vaca"?"T'HA ENVESTIT UNA VACA!":"GAME OVER",LW/2,LH*0.30);
+  ctx.fillText(G.deadReason==="vaca"?"T'HA ENVESTIT UNA VACA!":G.deadReason==="cotxe"?"T'HA ENVESTIT UN COTXE!":"GAME OVER",LW/2,LH*0.30);
   ctx.fillStyle="#fff";ctx.font="8px monospace";
   ctx.fillText((G.dist/100).toFixed(1)+" km   "+G.score+" pts",LW/2,LH*0.44);
   for(var i=0;i<END_BTNS.length;i++)drawEndButton(END_BTNS[i]);
